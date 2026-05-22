@@ -437,7 +437,7 @@ function showSystem(PDO $db, array $stats): void {
     $dbVersion = $db->query("SELECT VERSION()")->fetchColumn();
     $dbSize = $db->query("SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) FROM information_schema.tables WHERE table_schema = DATABASE()")->fetchColumn();
     $tableSizes = $db->query("
-        SELECT table_name, table_rows, ROUND((data_length + index_length) / 1024, 1) AS size_kb
+        SELECT table_name AS table_name, table_rows AS table_rows, ROUND((data_length + index_length) / 1024, 1) AS size_kb
         FROM information_schema.tables WHERE table_schema = DATABASE() ORDER BY table_rows DESC
     ")->fetchAll();
 ?>
