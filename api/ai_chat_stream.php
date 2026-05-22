@@ -79,20 +79,17 @@ try {
     $historyMessages = loadHistoryMessages($db, $sessionId, 10);
 
     $text = buildUserText($message, $favorite, $mediaItems, $searchResults);
-    $hasImage = false;
-    foreach ($mediaItems as $m) { if (($m['type'] ?? '') === 'image_url') { $hasImage = true; break; } }
-    $model = $hasImage ? (defined('MIMO_VISION_MODEL') ? MIMO_VISION_MODEL : 'mimo-v2.5') : MIMO_MODEL;
 
     $mimoMessages = [['role' => 'system', 'content' => buildSystemPrompt($profile)]];
     foreach ($historyMessages as $hm) {
         $mimoMessages[] = ['role' => $hm['role'] === 'user' ? 'user' : 'assistant', 'content' => $hm['content']];
     }
-    // Replace last user message with current (includes media)
+    // Replace last user message with current
     if (!empty($historyMessages)) array_pop($mimoMessages);
-    $mimoMessages[] = ['role' => 'user', 'content' => array_merge($mediaItems, [['type' => 'text', 'text' => $text]])];
+    $mimoMessages[] = ['role' => 'user', 'content' => $text];
 
     $payload = [
-        'model' => $model,
+        'model' => MIMO_MODEL,
         'messages' => $mimoMessages,
         'max_completion_tokens' => 2048,
         'stream' => true,
