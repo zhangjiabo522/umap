@@ -240,6 +240,36 @@
         .feedback-textarea { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; font-family: var(--font-body); background: #FAFBFF; color: var(--text-primary); outline: none; resize: none; box-sizing: border-box; transition: border-color 150ms; margin-bottom: 12px; display: block; }
         .feedback-textarea:focus { border-color: var(--primary); }
 
+        /* Header Search */
+        .header-search-wrap { flex: 1; max-width: 180px; margin: 0 8px; position: relative; }
+        .header-search-input { width: 100%; padding: 7px 10px 7px 28px; border: 1.5px solid var(--border); border-radius: 999px; font-size: 12px; font-family: var(--font-body); background: #F5F7FA; color: var(--text-primary); outline: none; transition: all 150ms; box-sizing: border-box; }
+        .header-search-input:focus { border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px rgba(21,101,239,0.1); }
+        .header-search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 12px; pointer-events: none; }
+
+        /* City Search Page */
+        .city-search-page { min-height: 100dvh; background: #F5F7FA; display: flex; flex-direction: column; }
+        .city-search-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 12px; height: 56px; display: flex; align-items: center; gap: 8px; position: sticky; top: 0; z-index: 50; }
+        .city-search-input-wrap { flex: 1; position: relative; }
+        .city-search-input { width: 100%; padding: 9px 12px 9px 34px; border: 1.5px solid var(--border); border-radius: 999px; font-size: 14px; font-family: var(--font-body); background: #F5F7FA; color: var(--text-primary); outline: none; transition: all 150ms; box-sizing: border-box; }
+        .city-search-input:focus { border-color: var(--primary); background: #fff; }
+        .city-search-input-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 14px; pointer-events: none; }
+        .city-search-btn { padding: 8px 14px; border: none; border-radius: 999px; background: var(--primary); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-body); white-space: nowrap; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
+        .city-search-content { flex: 1; padding: 16px; max-width: 480px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+        .attraction-card { background: var(--surface); border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 12px rgba(15,20,55,0.06); cursor: pointer; transition: all 150ms; border: 1.5px solid transparent; -webkit-tap-highlight-color: transparent; }
+        .attraction-card:hover { border-color: rgba(21,101,239,0.2); box-shadow: 0 4px 20px rgba(21,101,239,0.1); }
+        .attraction-card:active { transform: scale(0.98); }
+        .attraction-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+        .attraction-name { font-size: 15px; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
+        .attraction-actions { display: flex; gap: 6px; flex-shrink: 0; }
+        .attraction-action-btn { width: 32px; height: 32px; border-radius: 50%; border: none; background: #F5F7FA; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; transition: all 150ms; -webkit-tap-highlight-color: transparent; color: var(--text-muted); }
+        .attraction-action-btn:hover { background: #EEF4FF; color: var(--primary); }
+        .attraction-action-btn.favorited { background: #FFFBEB; color: #F59E0B; }
+        .attraction-action-btn.nav-btn { background: #EEF4FF; color: var(--primary); }
+        .attraction-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 10px; }
+        .attraction-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+        .attraction-tag { padding: 3px 10px; background: #EEF4FF; color: var(--primary); border-radius: 999px; font-size: 11px; font-weight: 500; }
+        .city-search-status { text-align: center; padding: 60px 20px; }
+
         /* ===== Preference Page ===== */
         .pref-page { min-height: 100vh; background: #F5F7FA; }
         .pref-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 32px; position: sticky; top: 0; z-index: 50; box-shadow: 0 1px 8px rgba(0,0,0,0.04); }
@@ -322,7 +352,8 @@
         CheckCircleFilled, SafetyOutlined, HeartFilled, TagsOutlined, PlusOutlined,
         CloseOutlined, ArrowLeftOutlined, SaveOutlined, InfoCircleFilled, WarningFilled,
         LoadingOutlined, StarFilled, DeleteOutlined, HomeOutlined, RobotOutlined,
-        RightOutlined, SettingOutlined, BellOutlined, QuestionCircleOutlined, AimOutlined
+        RightOutlined, SettingOutlined, BellOutlined, QuestionCircleOutlined, AimOutlined,
+        SearchOutlined, CompassOutlined
     } = icons;
 
     const RECAPTCHA_SITE_KEY = '6LeBLvcsAAAAAANaL5q8z4tVmVu1QPbrzarCBeoi';
@@ -1236,16 +1267,143 @@
         );
     }
 
+    // ==================== City Search Page ====================
+    function CitySearchPage({ onBack }) {
+        const [city, setCity] = useState('');
+        const [loading, setLoading] = useState(false);
+        const [attractions, setAttractions] = useState([]);
+        const [searched, setSearched] = useState(false);
+        const [favorites, setFavorites] = useState(new Set());
+        const inputRef = useRef(null);
+
+        useEffect(() => { if (inputRef.current) inputRef.current.focus(); }, []);
+
+        async function search() {
+            const c = city.trim();
+            if (!c) return;
+            setLoading(true);
+            setSearched(true);
+            setAttractions([]);
+            try {
+                const res = await fetch('/api/city_search.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ city: c }),
+                });
+                const data = await res.json();
+                if (data.success) setAttractions(data.attractions || []);
+                else message.error(data.message || '搜索失败');
+            } catch { message.error('网络错误，请重试'); }
+            setLoading(false);
+        }
+
+        function toggleFavorite(e, name) {
+            e.stopPropagation();
+            setFavorites(prev => {
+                const next = new Set(prev);
+                next.has(name) ? next.delete(name) : next.add(name);
+                return next;
+            });
+        }
+
+        function navigate(e, a) {
+            e.stopPropagation();
+            window.open(`https://uri.amap.com/search?query=${encodeURIComponent(a.name)}&city=${encodeURIComponent(city)}`, '_blank');
+        }
+
+        return (
+            <div className="city-search-page">
+                <div className="city-search-header">
+                    <button className="sub-page-back" onClick={onBack}><ArrowLeftOutlined /></button>
+                    <div className="city-search-input-wrap">
+                        <SearchOutlined className="city-search-input-icon" />
+                        <input
+                            ref={inputRef}
+                            className="city-search-input"
+                            placeholder="输入城市名称，如：北京、上海..."
+                            value={city}
+                            onChange={e => setCity(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && search()}
+                        />
+                    </div>
+                    <button className="city-search-btn" onClick={search}>搜索</button>
+                </div>
+                <div className="city-search-content">
+                    {loading ? (
+                        <div className="city-search-status">
+                            <LoadingOutlined style={{ fontSize: 32, color: 'var(--primary)' }} />
+                            <div style={{ marginTop: 16, color: 'var(--text-secondary)', fontSize: 14 }}>AI 正在搜索 {city} 的景点...</div>
+                            <div style={{ marginTop: 8, color: 'var(--text-muted)', fontSize: 12 }}>根据你的偏好智能排序中</div>
+                        </div>
+                    ) : !searched ? (
+                        <div className="city-search-status">
+                            <div className="sub-empty-icon"><SearchOutlined /></div>
+                            <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>搜索城市景点</h3>
+                            <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>输入城市名称，AI 将根据你的偏好推荐最适合的景点</p>
+                        </div>
+                    ) : attractions.length === 0 ? (
+                        <div className="city-search-status">
+                            <div className="sub-empty-icon"><EnvironmentOutlined /></div>
+                            <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>未找到景点</h3>
+                            <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>请尝试其他城市名称</p>
+                        </div>
+                    ) : (
+                        <>
+                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
+                                找到 {attractions.length} 个景点 · 已根据偏好排序
+                            </div>
+                            {attractions.map((a, i) => (
+                                <div key={i} className="attraction-card" onClick={e => navigate(e, a)}>
+                                    <div className="attraction-card-header">
+                                        <span className="attraction-name">{a.name}</span>
+                                        <div className="attraction-actions">
+                                            <button
+                                                className={`attraction-action-btn${favorites.has(a.name) ? ' favorited' : ''}`}
+                                                onClick={e => toggleFavorite(e, a.name)}
+                                                aria-label="收藏">
+                                                <StarFilled />
+                                            </button>
+                                            <button className="attraction-action-btn nav-btn"
+                                                onClick={e => navigate(e, a)}
+                                                aria-label="导航">
+                                                <CompassOutlined />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {a.description && <div className="attraction-desc">{a.description}</div>}
+                                    {a.tags && a.tags.length > 0 && (
+                                        <div className="attraction-tags">
+                                            {a.tags.slice(0, 4).map((t, j) => <span key={j} className="attraction-tag">{t}</span>)}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     // ==================== App Shell (logged in) ====================
     function AppShell({ user, onLogout }) {
         const [activeTab, setActiveTab] = useState('home');
         const [showPrefs, setShowPrefs] = useState(false);
         const [subPage, setSubPage] = useState(null);
+        const [headerSearch, setHeaderSearch] = useState('');
 
         if (showPrefs) return <PreferencePage user={user} onBack={() => setShowPrefs(false)} />;
         if (subPage === 'favorites') return <FavoritesPage onBack={() => setSubPage(null)} />;
         if (subPage === 'account') return <AccountSettingsPage user={user} onBack={() => setSubPage(null)} />;
         if (subPage === 'help') return <HelpPage onBack={() => setSubPage(null)} />;
+        if (subPage === 'citySearch') return <CitySearchPage onBack={() => setSubPage(null)} />;
+
+        function handleHeaderSearchKey(e) {
+            if (e.key === 'Enter' && headerSearch.trim()) {
+                setSubPage('citySearch');
+                setHeaderSearch('');
+            }
+        }
 
         return (
             <div className="app-shell">
@@ -1255,6 +1413,16 @@
                             <img src="/img/logo.jpg" alt="UMap" />
                         </div>
                         <span className="app-header-title">UMap</span>
+                    </div>
+                    <div className="header-search-wrap">
+                        <SearchOutlined className="header-search-icon" />
+                        <input
+                            className="header-search-input"
+                            placeholder="搜索城市..."
+                            value={headerSearch}
+                            onChange={e => setHeaderSearch(e.target.value)}
+                            onKeyDown={handleHeaderSearchKey}
+                        />
                     </div>
                     <div className="app-header-user" onClick={() => setActiveTab('profile')}>
                         <Avatar size={30} style={{ background: 'linear-gradient(135deg, #6CB3FF 0%, #5EEADB 100%)', fontWeight: 700, fontSize: 12 }}>
