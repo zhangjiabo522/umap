@@ -37,18 +37,31 @@ if (!$city) { sendEvt('error', ['message' => '请输入城市名称']); exit; }
 $userPrefs = [];
 $userFavorites = [];
 $userFeedback = ['likes' => [], 'dislikes' => []];
+$db = getDB();
+
 try {
-    $db = getDB();
-    $stmt = $db->prepare("SELECT t.name FROM user_preference_tags upt JOIN preference_tags t ON t.id = upt.tag_id WHERE upt.user_id = ? LIMIT 30");
+    $stmt = $db->prepare("SELECT tt.name FROM user_preferences up JOIN travel_tags tt ON tt.id = up.tag_id WHERE up.user_id = ? LIMIT 30");
     $stmt->execute([$_SESSION['user_id']]);
     $userPrefs = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    ensureFeedbackTable($db);
+} catch (Exception $e) {
+    try {
+        $stmt = $db->prepare("SELECT t.name FROM user_preference_tags upt JOIN preference_tags t ON t.id = upt.tag_id WHERE upt.user_id = ? LIMIT 30");
+        $stmt->execute([$_SESSION['user_id']]);
+        $userPrefs = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    } catch (Exception $e2) {}
+}
+
+try {
     ensureFavoritesTable($db);
     $stmt = $db->prepare("SELECT name, tags FROM user_favorites WHERE user_id = ? ORDER BY created_at DESC LIMIT 80");
     $stmt->execute([$_SESSION['user_id']]);
     foreach ($stmt->fetchAll() as $row) {
         $userFavorites[] = ['name' => $row['name'], 'tags' => $row['tags'] ? (json_decode($row['tags'], true) ?: []) : []];
     }
+} catch (Exception $e) {}
+
+try {
+    ensureFeedbackTable($db);
     $stmt = $db->prepare("SELECT name, tags, feedback_type FROM user_attraction_feedback WHERE user_id = ? ORDER BY created_at DESC LIMIT 80");
     $stmt->execute([$_SESSION['user_id']]);
     foreach ($stmt->fetchAll() as $row) {
@@ -75,6 +88,7 @@ sendEvt('status', ['step' => 1, 'message' => "AI 已筛选出 {$total} 个候选
 // ── Step 2: AMap 补充坐标和评分 ──────────────────────────────────────────────
 sendEvt('status', ['step' => 2, 'message' => "正在从高德地图补充详情 (0/{$total})..."]);
 $enriched = parallelAmapLookup($city, $candidates, $total);
+$enriched = filterDislikedAttractions($enriched, $userFeedback['dislikes'] ?? []);
 sendEvt('status', ['step' => 2, 'message' => '高德地图详情补充完成', 'done' => true]);
 
 foreach ($enriched as $a) {
@@ -148,16 +162,24 @@ function filterDislikedAttractions(array $candidates, array $dislikes): array {
     $blocked = [];
     foreach ($dislikes as $item) {
         $name = normalizeAttractionName($item['name'] ?? '');
-        if ($name) $blocked[$name] = true;
+        if ($name) $blocked[] = $name;
     }
     return array_values(array_filter($candidates, function ($item) use ($blocked) {
         $name = normalizeAttractionName($item['name'] ?? '');
-        return $name && empty($blocked[$name]);
+        if (!$name) return false;
+        foreach ($blocked as $bad) {
+            if ($name === $bad || mb_strpos($name, $bad, 0, 'UTF-8') !== false || mb_strpos($bad, $name, 0, 'UTF-8') !== false) return false;
+        }
+        return true;
     }));
 }
 
 function normalizeAttractionName(string $name): string {
-    return preg_replace('/\s+/u', '', mb_strtolower(trim($name), 'UTF-8'));
+    $name = mb_strtolower(trim($name), 'UTF-8');
+    $name = preg_replace('/[\s\p{P}\p{S}]+/u', '', $name);
+    $name = preg_replace('/^(中国|天津市|北京市|上海市|重庆市|天津|北京|上海|重庆)/u', '', $name);
+    $name = preg_replace('/(景区|风景区|旅游区|文化旅游区|公园|遗址公园|博物馆|纪念馆|街区|历史文化街区)$/u', '', $name);
+    return $name ?: '';
 }
 
 function deepseekSearchAttractions(string $city, array $userPrefs, array $userFavorites, array $userFeedback, int $page): array {
