@@ -31,7 +31,16 @@
       "Read(//etc/php/8.1/fpm/pool.d/**)",
       "Bash(systemctl restart *)",
       "Bash(curl -sS https://getcomposer.org/installer)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(curl -sk \"https://cdn.jsdelivr.net/npm/@ant-design/icons@5.2.6/dist/index.umd.min.js\")",
+      "WebSearch",
+      "Bash(curl -sk \"https://api.github.com/repos/nextlevelbuilder/ui-ux-pro-max-skill\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('description',''\\)\\); print\\(d.get\\('html_url',''\\)\\); print\\('Topics:', d.get\\('topics',[]\\)\\)\")",
+      "Bash(curl -sk \"https://api.github.com/repos/nextlevelbuilder/ui-ux-pro-max-skill/git/trees/main?recursive=1\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(t['path']\\) for t in d.get\\('tree',[]\\)]\")",
+      "Bash(curl -sk \"https://raw.githubusercontent.com/nextlevelbuilder/ui-ux-pro-max-skill/main/.claude/skills/ui-ux-pro-max/SKILL.md\")",
+      "Bash(curl -sk https://umap.online/)",
+      "Bash(git -C /www/wwwroot/umap.online add index.html .gitignore .claude/)"
     ]
   }
 }

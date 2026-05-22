@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UMap - 你的地图</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/antd@5.12.8/dist/reset.min.css">
     <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
@@ -13,69 +16,391 @@
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.6/babel.min.js"></script>
     <script src="https://recaptcha.google.cn/recaptcha/api.js?render=explicit" async defer></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
-        .auth-container {
+        :root {
+            --primary: #1565EF;
+            --primary-dark: #1254C4;
+            --accent: #0D9488;
+            --surface: #FFFFFF;
+            --surface-glass: rgba(255,255,255,0.92);
+            --bg-start: #0F1E3D;
+            --bg-mid: #15305A;
+            --bg-end: #0A1628;
+            --text-primary: #131827;
+            --text-secondary: #5E6778;
+            --text-muted: #8C93A3;
+            --border: #E4E7ED;
+            --error: #DE345D;
+            --radius-sm: 10px;
+            --radius-md: 16px;
+            --radius-lg: 20px;
+            --shadow-card: 0 8px 40px rgba(15,20,55,0.12);
+            --shadow-elevated: 0 16px 64px rgba(15,20,55,0.18);
+            --font-heading: 'Plus Jakarta Sans', -apple-system, sans-serif;
+            --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: var(--font-body);
+            font-size: 15px;
+            line-height: 1.6;
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ===== Auth Layout ===== */
+        .auth-page {
             min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            overflow: hidden;
+            background: var(--surface);
+        }
+        .auth-brand {
+            display: none;
+            flex: 1 1 48%;
+            background: linear-gradient(160deg, var(--bg-start) 0%, var(--bg-mid) 50%, var(--bg-end) 100%);
+            position: relative;
+            overflow: hidden;
+            align-items: center;
+            justify-content: center;
+            padding: 64px;
+        }
+        .auth-brand::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 70% 60% at 30% 70%, rgba(21,101,239,0.25) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 50% at 70% 30%, rgba(13,148,136,0.18) 0%, transparent 55%),
+                radial-gradient(circle at 85% 15%, rgba(255,255,255,0.06) 0%, transparent 40%);
+        }
+        .auth-brand::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 48px 48px;
+            mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, #000 0%, transparent 70%);
+        }
+        .brand-content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            max-width: 420px;
+        }
+        .brand-logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 28px;
+            background: linear-gradient(135deg, var(--primary) 0%, #3498DB 50%, var(--accent) 100%);
+            border-radius: 22px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 20px;
+            box-shadow: 0 12px 40px rgba(21,101,239,0.4);
+            transition: transform var(--transition-base);
         }
-        .auth-card {
-            width: 100%;
-            max-width: 420px;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        .brand-logo:hover { transform: scale(1.05) rotate(-2deg); }
+        .brand-logo svg { width: 44px; height: 44px; fill: white; }
+        .brand-name {
+            font-family: var(--font-heading);
+            font-size: 38px;
+            font-weight: 800;
+            color: #FFFFFF;
+            letter-spacing: -0.02em;
+            margin-bottom: 8px;
         }
-        .auth-header {
-            text-align: center;
-            padding: 24px 0 8px;
-        }
-        .auth-header h1 {
-            font-size: 28px;
-            font-weight: 700;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .brand-name span {
+            background: linear-gradient(135deg, #6CB3FF 0%, #5EEADB 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            margin-bottom: 4px;
         }
-        .auth-header p {
-            color: #666;
+        .brand-tagline {
+            font-size: 16px;
+            color: rgba(255,255,255,0.65);
+            line-height: 1.5;
+            margin-bottom: 36px;
+        }
+        .brand-features {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            text-align: left;
+        }
+        .brand-feature {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: rgba(255,255,255,0.78);
             font-size: 14px;
+            font-weight: 500;
         }
-        .g-recaptcha { margin: 0 auto; display: flex; justify-content: center; }
-        .dashboard-container {
+        .feature-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            background: linear-gradient(135deg, #6CB3FF, #5EEADB);
+            box-shadow: 0 0 12px rgba(108,179,255,0.5);
+        }
+
+        .auth-form-area {
+            flex: 1 1 52%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            background: var(--surface);
+        }
+        .auth-card-wrapper {
+            width: 100%;
+            max-width: 420px;
+        }
+        .auth-form-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .auth-form-header h2 {
+            font-family: var(--font-heading);
+            font-size: 26px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
+        }
+        .auth-form-header p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 6px;
+        }
+
+        .auth-tabs {
+            display: flex;
+            background: #F5F6FA;
+            border-radius: var(--radius-sm);
+            padding: 4px;
+            margin-bottom: 28px;
+        }
+        .auth-tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--transition-base);
+            border: none;
+            background: transparent;
+            font-family: var(--font-body);
+        }
+        .auth-tab.active {
+            background: var(--surface);
+            color: var(--primary);
+            box-shadow: 0 2px 8px rgba(15,20,55,0.08);
+        }
+        .auth-tab:hover:not(.active) { color: var(--text-primary); }
+
+        /* ===== Form Overrides ===== */
+        .ant-form-item { margin-bottom: 20px; }
+        .ant-input-affix-wrapper {
+            border-radius: var(--radius-sm) !important;
+            border: 1.5px solid var(--border) !important;
+            padding: 10px 14px !important;
+            font-size: 14px !important;
+            transition: all var(--transition-base) !important;
+            box-shadow: none !important;
+        }
+        .ant-input-affix-wrapper:hover { border-color: #C0C6D1 !important; }
+        .ant-input-affix-wrapper:focus-within,
+        .ant-input-affix-wrapper.ant-input-affix-wrapper-focused {
+            border-color: var(--primary) !important;
+            box-shadow: 0 0 0 3px rgba(21,101,239,0.1) !important;
+        }
+        .ant-input-affix-wrapper .ant-input {
+            font-size: 14px !important;
+            line-height: 1.5 !important;
+        }
+        .ant-btn-primary {
+            height: 48px !important;
+            border-radius: var(--radius-sm) !important;
+            font-size: 15px !important;
+            font-weight: 600 !important;
+            font-family: var(--font-body) !important;
+            background: linear-gradient(135deg, var(--primary) 0%, #3363E0 50%, #1D4ED3 100%) !important;
+            border: none !important;
+            box-shadow: 0 4px 16px rgba(21,101,239,0.3) !important;
+            transition: all var(--transition-base) !important;
+            letter-spacing: 0.01em !important;
+        }
+        .ant-btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 28px rgba(21,101,239,0.4) !important;
+            background: linear-gradient(135deg, #2572F5 0%, #3D6EE5 50%, #2257E0 100%) !important;
+        }
+        .ant-btn-primary:active { transform: scale(0.98); }
+        .ant-btn-primary.ant-btn-loading { opacity: 0.85; transform: none; }
+
+        .g-recaptcha-container {
+            display: flex;
+            justify-content: center;
+            min-height: 78px;
+        }
+
+        .auth-divider {
+            position: relative;
+            text-align: center;
+            margin: 20px 0;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* ===== Dashboard ===== */
+        .dashboard-page {
             min-height: 100vh;
-            background: #f0f2f5;
+            min-height: 100dvh;
+            background: #F5F7FA;
+        }
+        .dashboard-header {
+            background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-mid) 60%, var(--bg-end) 100%);
+            padding: 20px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 16px rgba(15,20,55,0.15);
+        }
+        .dash-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .dash-logo-icon {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .dash-title {
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 20px;
+            color: #FFFFFF;
+            letter-spacing: -0.01em;
+        }
+        .dash-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+        .welcome-card {
+            border-radius: var(--radius-lg) !important;
+            border: none !important;
+            box-shadow: var(--shadow-card) !important;
+            overflow: hidden;
+        }
+        .welcome-card .ant-result-title {
+            font-family: var(--font-heading);
+            font-weight: 700;
+        }
+        .welcome-card .ant-result-subtitle {
+            color: var(--text-secondary);
+        }
+
+        /* ===== Responsive ===== */
+        @media (min-width: 769px) {
+            .auth-brand { display: flex; }
+        }
+        @media (max-width: 768px) {
+            .auth-page { flex-direction: column; }
+            .auth-brand {
+                display: flex;
+                flex: none;
+                padding: 32px 24px 40px;
+                min-height: 240px;
+            }
+            .brand-logo { width: 56px; height: 56px; border-radius: 16px; margin-bottom: 16px; }
+            .brand-logo svg { width: 30px; height: 30px; }
+            .brand-name { font-size: 26px; }
+            .brand-tagline { font-size: 14px; margin-bottom: 0; }
+            .brand-features { display: none; }
+            .auth-form-area { padding: 0 20px 40px; margin-top: -24px; }
+            .auth-card-wrapper {
+                background: var(--surface-glass);
+                backdrop-filter: blur(12px);
+                border-radius: var(--radius-lg);
+                padding: 28px 24px;
+                box-shadow: var(--shadow-elevated);
+                margin-top: -32px;
+            }
+            .dashboard-header { padding: 14px 20px; }
         }
     </style>
 </head>
 <body>
     <div id="root"></div>
     <script type="text/babel">
-        const { useState, useEffect, useRef, useCallback } = React;
-        const { Form, Input, Button, Card, message, Tabs, Typography, Space, Avatar, Dropdown, Layout, Menu, Result } = antd;
-        const { UserOutlined, LockOutlined, MailOutlined, SafetyOutlined, LogoutOutlined, EnvironmentOutlined } = icons;
+        const { useState, useEffect, useRef } = React;
+        const { Form, Input, Button, Card, message, Typography, Space, Avatar, Dropdown, Layout, Result, Badge, Tooltip } = antd;
+        const {
+            UserOutlined, LockOutlined, MailOutlined, EnvironmentOutlined,
+            LogoutOutlined, MenuOutlined, DashboardOutlined, CompassOutlined,
+            GlobalOutlined, SettingOutlined, CheckCircleFilled, SafetyOutlined
+        } = icons;
 
         const RECAPTCHA_SITE_KEY = '6LeBLvcsAAAAAANaL5q8z4tVmVu1QPbrzarCBeoi';
+
+        const TOKEN = {
+            primary: '#1565EF',
+            accent: '#0D9488',
+            bgStart: '#0F1E3D',
+            bgMid: '#15305A',
+            bgEnd: '#0A1628',
+        };
 
         function RecaptchaWidget({ onVerify, resetKey }) {
             const containerRef = useRef(null);
             const widgetIdRef = useRef(null);
 
             useEffect(() => {
-                if (!window.grecaptcha || !window.grecaptcha.render) {
-                    const timer = setInterval(() => {
-                        if (window.grecaptcha && window.grecaptcha.render) {
-                            clearInterval(timer);
-                            renderWidget();
-                        }
-                    }, 200);
+                const tryRender = () => {
+                    if (!window.grecaptcha || !window.grecaptcha.render) return false;
+                    if (containerRef.current) {
+                        try {
+                            widgetIdRef.current = window.grecaptcha.render(containerRef.current, {
+                                sitekey: RECAPTCHA_SITE_KEY,
+                                callback: onVerify,
+                                theme: 'light',
+                            });
+                            return true;
+                        } catch(e) { return false; }
+                    }
+                    return false;
+                };
+                if (!tryRender()) {
+                    const timer = setInterval(() => { if (tryRender()) clearInterval(timer); }, 200);
                     return () => clearInterval(timer);
                 }
-                renderWidget();
             }, []);
 
             useEffect(() => {
@@ -84,85 +409,98 @@
                 }
             }, [resetKey]);
 
-            function renderWidget() {
-                if (containerRef.current && window.grecaptcha && window.grecaptcha.render) {
-                    try {
-                        widgetIdRef.current = window.grecaptcha.render(containerRef.current, {
-                            sitekey: RECAPTCHA_SITE_KEY,
-                            callback: onVerify,
-                            theme: 'light',
-                        });
-                    } catch(e) {}
-                }
+            return <div ref={containerRef} className="g-recaptcha-container"></div>;
+        }
+
+        function useAuthForm() {
+            const [loading, setLoading] = useState(false);
+            const [captchaToken, setCaptchaToken] = useState('');
+            const [captchaReset, setCaptchaReset] = useState(0);
+            const resetCaptcha = () => { setCaptchaToken(''); setCaptchaReset(k => k + 1); };
+
+            async function submit(url, body) {
+                if (!captchaToken) { message.warning('请完成人机验证'); return null; }
+                setLoading(true);
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...body, recaptcha_token: captchaToken }),
+                    });
+                    const data = await res.json();
+                    if (data.success) { message.success(data.message); return data; }
+                    message.error(data.message);
+                    resetCaptcha();
+                    return null;
+                } catch (e) { message.error('网络错误，请稍后重试'); resetCaptcha(); return null;
+                } finally { setLoading(false); }
+            }
+            return { loading, captchaToken, setCaptchaToken, captchaReset, resetCaptcha, submit };
+        }
+
+        function LoginForm({ onLogin }) {
+            const [form] = Form.useForm();
+            const { loading, captchaToken, setCaptchaToken, captchaReset, submit } = useAuthForm();
+
+            async function handleSubmit(v) {
+                const data = await submit('/api/login.php', { account: v.account, password: v.password });
+                if (data?.user) onLogin(data.user);
             }
 
-            return <div ref={containerRef} className="g-recaptcha" style={{ minHeight: 78 }}></div>;
+            return (
+                <Form form={form} onFinish={handleSubmit} size="large" layout="vertical">
+                    <Form.Item name="account" rules={[{ required: true, message: '请输入用户名或邮箱' }]}>
+                        <Input prefix={<UserOutlined style={{ color: TOKEN.accent }} />}
+                            placeholder="用户名或邮箱" autoComplete="username" />
+                    </Form.Item>
+                    <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
+                        <Input.Password prefix={<LockOutlined style={{ color: TOKEN.accent }} />}
+                            placeholder="密码" autoComplete="current-password" />
+                    </Form.Item>
+                    <Form.Item><RecaptchaWidget onVerify={setCaptchaToken} resetKey={captchaReset} /></Form.Item>
+                    <Form.Item>
+                        <Button type="primary" htmlType="submit" block loading={loading}>
+                            登录
+                        </Button>
+                    </Form.Item>
+                </Form>
+            );
         }
 
         function RegisterForm({ onSuccess }) {
             const [form] = Form.useForm();
-            const [loading, setLoading] = useState(false);
-            const [recaptchaToken, setRecaptchaToken] = useState('');
-            const [resetKey, setResetKey] = useState(0);
+            const { loading, captchaToken, setCaptchaToken, captchaReset, submit } = useAuthForm();
 
-            async function handleSubmit(values) {
-                if (!recaptchaToken) {
-                    message.warning('请完成人机验证');
-                    return;
-                }
-                setLoading(true);
-                try {
-                    const res = await fetch('/api/register.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            username: values.username,
-                            email: values.email,
-                            password: values.password,
-                            recaptcha_token: recaptchaToken,
-                        }),
-                    });
-                    const data = await res.json();
-                    if (data.success) {
-                        message.success(data.message);
-                        form.resetFields();
-                        setRecaptchaToken('');
-                        setResetKey(k => k + 1);
-                        onSuccess();
-                    } else {
-                        message.error(data.message);
-                        setRecaptchaToken('');
-                        setResetKey(k => k + 1);
-                    }
-                } catch (e) {
-                    message.error('网络错误，请稍后重试');
-                    setRecaptchaToken('');
-                    setResetKey(k => k + 1);
-                } finally {
-                    setLoading(false);
-                }
+            async function handleSubmit(v) {
+                const data = await submit('/api/register.php', {
+                    username: v.username, email: v.email, password: v.password
+                });
+                if (data?.success) { form.resetFields(); resetCaptcha(); onSuccess(); }
             }
 
             return (
                 <Form form={form} onFinish={handleSubmit} size="large" layout="vertical">
                     <Form.Item name="username" rules={[
                         { required: true, message: '请输入用户名' },
-                        { min: 3, max: 50, message: '用户名长度3-50个字符' },
-                        { pattern: /^[a-zA-Z0-9_一-龥]+$/, message: '用户名只能包含字母、数字、下划线和中文' }
+                        { min: 3, max: 50, message: '用户名长度 3-50 个字符' },
+                        { pattern: /^[a-zA-Z0-9_一-龥]+$/, message: '仅支持字母、数字、下划线和中文' }
                     ]}>
-                        <Input prefix={<UserOutlined />} placeholder="用户名" />
+                        <Input prefix={<UserOutlined style={{ color: TOKEN.accent }} />}
+                            placeholder="用户名" autoComplete="username" />
                     </Form.Item>
                     <Form.Item name="email" rules={[
                         { required: true, message: '请输入邮箱' },
                         { type: 'email', message: '请输入有效的邮箱地址' }
                     ]}>
-                        <Input prefix={<MailOutlined />} placeholder="电子邮箱" />
+                        <Input prefix={<MailOutlined style={{ color: TOKEN.accent }} />}
+                            placeholder="电子邮箱" autoComplete="email" />
                     </Form.Item>
                     <Form.Item name="password" rules={[
                         { required: true, message: '请输入密码' },
-                        { min: 8, message: '密码长度至少8个字符' }
+                        { min: 8, message: '密码长度至少 8 个字符' }
                     ]}>
-                        <Input.Password prefix={<LockOutlined />} placeholder="密码（至少8位）" />
+                        <Input.Password prefix={<LockOutlined style={{ color: TOKEN.accent }} />}
+                            placeholder="密码（至少8位）" autoComplete="new-password" />
                     </Form.Item>
                     <Form.Item name="confirmPassword" dependencies={['password']} rules={[
                         { required: true, message: '请确认密码' },
@@ -173,76 +511,13 @@
                             }
                         })
                     ]}>
-                        <Input.Password prefix={<LockOutlined />} placeholder="确认密码" />
+                        <Input.Password prefix={<LockOutlined style={{ color: TOKEN.accent }} />}
+                            placeholder="确认密码" autoComplete="new-password" />
                     </Form.Item>
+                    <Form.Item><RecaptchaWidget onVerify={setCaptchaToken} resetKey={captchaReset} /></Form.Item>
                     <Form.Item>
-                        <RecaptchaWidget onVerify={setRecaptchaToken} resetKey={resetKey} />
-                    </Form.Item>
-                    <Form.Item>
-                        <Button type="primary" htmlType="submit" block loading={loading}
-                            style={{ height: 44, borderRadius: 8, fontSize: 16, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', border: 'none' }}>
+                        <Button type="primary" htmlType="submit" block loading={loading}>
                             注册
-                        </Button>
-                    </Form.Item>
-                </Form>
-            );
-        }
-
-        function LoginForm({ onLogin }) {
-            const [form] = Form.useForm();
-            const [loading, setLoading] = useState(false);
-            const [recaptchaToken, setRecaptchaToken] = useState('');
-            const [resetKey, setResetKey] = useState(0);
-
-            async function handleSubmit(values) {
-                if (!recaptchaToken) {
-                    message.warning('请完成人机验证');
-                    return;
-                }
-                setLoading(true);
-                try {
-                    const res = await fetch('/api/login.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            account: values.account,
-                            password: values.password,
-                            recaptcha_token: recaptchaToken,
-                        }),
-                    });
-                    const data = await res.json();
-                    if (data.success) {
-                        message.success(data.message);
-                        onLogin(data.user);
-                    } else {
-                        message.error(data.message);
-                        setRecaptchaToken('');
-                        setResetKey(k => k + 1);
-                    }
-                } catch (e) {
-                    message.error('网络错误，请稍后重试');
-                    setRecaptchaToken('');
-                    setResetKey(k => k + 1);
-                } finally {
-                    setLoading(false);
-                }
-            }
-
-            return (
-                <Form form={form} onFinish={handleSubmit} size="large" layout="vertical">
-                    <Form.Item name="account" rules={[{ required: true, message: '请输入用户名或邮箱' }]}>
-                        <Input prefix={<UserOutlined />} placeholder="用户名或邮箱" />
-                    </Form.Item>
-                    <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
-                        <Input.Password prefix={<LockOutlined />} placeholder="密码" />
-                    </Form.Item>
-                    <Form.Item>
-                        <RecaptchaWidget onVerify={setRecaptchaToken} resetKey={resetKey} />
-                    </Form.Item>
-                    <Form.Item>
-                        <Button type="primary" htmlType="submit" block loading={loading}
-                            style={{ height: 44, borderRadius: 8, fontSize: 16, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', border: 'none' }}>
-                            登录
                         </Button>
                     </Form.Item>
                 </Form>
@@ -255,46 +530,61 @@
                 onLogout();
             }
 
-            const items = [
-                { key: 'user', label: user.username, icon: <UserOutlined />, children: [
-                    { key: 'email', label: user.email },
-                ]},
+            const menuItems = [
+                { key: 'email', icon: <CheckCircleFilled style={{ color: '#10B981' }} />,
+                    label: <span style={{ fontSize: 13 }}>{user.email}</span> },
+                { type: 'divider' },
+                { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', danger: true },
             ];
 
-            const userMenu = {
-                items: [{ key: 'logout', icon: <LogoutOutlined />, label: '退出登录', danger: true }],
-                onClick: ({ key }) => { if (key === 'logout') handleLogout(); }
-            };
-
             return (
-                <div className="dashboard-container">
-                    <Layout.Header style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
-                        <Space>
-                            <EnvironmentOutlined style={{ fontSize: 24, color: '#667eea' }} />
-                            <Typography.Text strong style={{ fontSize: 18 }}>UMap</Typography.Text>
-                        </Space>
-                        <Dropdown menu={userMenu} placement="bottomRight">
-                            <Space style={{ cursor: 'pointer' }}>
-                                <Avatar style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-                                    {user.username[0].toUpperCase()}
-                                </Avatar>
-                                <Typography.Text>{user.username}</Typography.Text>
+                <div className="dashboard-page">
+                    <div className="dashboard-header">
+                        <div className="dash-brand">
+                            <div className="dash-logo-icon">
+                                <EnvironmentOutlined style={{ color: '#FFF', fontSize: 20 }} />
+                            </div>
+                            <span className="dash-title">UMap</span>
+                        </div>
+                        <Dropdown menu={{ items: menuItems, onClick: ({ key }) => { if (key === 'logout') handleLogout(); } }} placement="bottomRight">
+                            <Space style={{ cursor: 'pointer', padding: '6px 12px', borderRadius: 12, transition: 'background 200ms' }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                <Avatar size={36} style={{
+                                    background: 'linear-gradient(135deg, #6CB3FF 0%, #5EEADB 100%)',
+                                    fontWeight: 700, fontSize: 15
+                                }}>{user.username[0].toUpperCase()}</Avatar>
+                                <span style={{ color: 'rgba(255,255,255,0.92)', fontWeight: 500, fontSize: 14 }}>{user.username}</span>
                             </Space>
                         </Dropdown>
-                    </Layout.Header>
-                    <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
-                        <Card>
+                    </div>
+                    <div className="dash-content">
+                        <Card className="welcome-card">
                             <Result
-                                icon={<EnvironmentOutlined style={{ color: '#667eea' }} />}
-                                title={`欢迎回来，${user.username}！`}
-                                subTitle="您已成功登录 UMap，地图功能即将上线。"
+                                icon={
+                                    <div style={{ width: 80, height: 80, borderRadius: 22, background: 'linear-gradient(135deg, #EBF3FF 0%, #E6F5F4 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
+                                        <EnvironmentOutlined style={{ fontSize: 40, color: TOKEN.primary }} />
+                                    </div>
+                                }
+                                title={<span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: 24 }}>欢迎回来，{user.username}！</span>}
+                                subTitle={<span style={{ fontSize: 15 }}>您已成功登录 UMap，地图功能即将上线，敬请期待。</span>}
                                 extra={[
-                                    <Button key="logout" onClick={handleLogout}>退出登录</Button>
+                                    <Button key="logout" onClick={handleLogout} size="large" style={{ borderRadius: 10, fontWeight: 500 }}>
+                                        退出登录
+                                    </Button>
                                 ]}
                             />
                         </Card>
                     </div>
                 </div>
+            );
+        }
+
+        function MapLogo() {
+            return (
+                <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z" fill="#FFF"/>
+                </svg>
             );
         }
 
@@ -305,45 +595,68 @@
 
             useEffect(() => {
                 const params = new URLSearchParams(window.location.search);
-                if (params.get('verified') === 'success') {
-                    message.success('邮箱验证成功，请登录');
-                    window.history.replaceState({}, '', '/');
-                } else if (params.get('verified') === 'already') {
-                    message.info('邮箱已验证，请直接登录');
-                    window.history.replaceState({}, '', '/');
-                }
+                const verified = params.get('verified');
+                if (verified === 'success') { message.success('邮箱验证成功，请登录！'); window.history.replaceState({}, '', '/'); }
+                else if (verified === 'already') { message.info('邮箱已验证，请直接登录'); window.history.replaceState({}, '', '/'); }
 
-                fetch('/api/user.php').then(r => r.json()).then(data => {
-                    if (data.success) setUser(data.user);
-                }).finally(() => setChecking(false));
+                fetch('/api/user.php')
+                    .then(r => r.json())
+                    .then(d => { if (d.success) setUser(d.user); })
+                    .finally(() => setChecking(false));
             }, []);
 
             if (checking) {
-                return <div className="auth-container" style={{ color: '#fff', fontSize: 18 }}>加载中...</div>;
+                return (
+                    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F5F7FA', fontFamily: 'var(--font-body)', fontSize: 16, color: TOKEN.primary }}>
+                        加载中...
+                    </div>
+                );
             }
 
-            if (user) {
-                return <Dashboard user={user} onLogout={() => setUser(null)} />;
-            }
+            if (user) return <Dashboard user={user} onLogout={() => setUser(null)} />;
 
             return (
-                <div className="auth-container">
-                    <Card className="auth-card" bordered={false}>
-                        <div className="auth-header">
-                            <h1>UMap</h1>
-                            <p>你的地图</p>
+                <div className="auth-page">
+                    <div className="auth-brand">
+                        <div className="brand-content">
+                            <div className="brand-logo"><MapLogo /></div>
+                            <h1 className="brand-name">U<span>Map</span></h1>
+                            <p className="brand-tagline">探索世界 · 精准导航 · 智能地理信息服务</p>
+                            <div className="brand-features">
+                                <div className="brand-feature"><span className="feature-dot"></span>实时地图浏览与路径规划</div>
+                                <div className="brand-feature"><span className="feature-dot"></span>多图层地理数据可视化</div>
+                                <div className="brand-feature"><span className="feature-dot"></span>智能搜索与兴趣点标注</div>
+                            </div>
                         </div>
-                        <Tabs activeKey={activeTab} onChange={setActiveTab} centered items={[
-                            { key: 'login', label: '登录', children: <LoginForm onLogin={setUser} /> },
-                            { key: 'register', label: '注册', children: <RegisterForm onSuccess={() => setActiveTab('login')} /> },
-                        ]} />
-                    </Card>
+                    </div>
+
+                    <div className="auth-form-area">
+                        <div className="auth-card-wrapper">
+                            <div className="auth-form-header">
+                                <h2>{activeTab === 'login' ? '欢迎回来' : '创建账号'}</h2>
+                                <p>{activeTab === 'login' ? '登录你的 UMap 账号继续探索' : '注册 UMap 开始你的地图之旅'}</p>
+                            </div>
+
+                            <div className="auth-tabs" role="tablist">
+                                <button role="tab" aria-selected={activeTab === 'login'}
+                                    className={`auth-tab${activeTab === 'login' ? ' active' : ''}`}
+                                    onClick={() => setActiveTab('login')}>登录</button>
+                                <button role="tab" aria-selected={activeTab === 'register'}
+                                    className={`auth-tab${activeTab === 'register' ? ' active' : ''}`}
+                                    onClick={() => setActiveTab('register')}>注册</button>
+                            </div>
+
+                            {activeTab === 'login'
+                                ? <LoginForm onLogin={setUser} />
+                                : <RegisterForm onSuccess={() => setActiveTab('login')} />
+                            }
+                        </div>
+                    </div>
                 </div>
             );
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<AuthPage />);
+        ReactDOM.createRoot(document.getElementById('root')).render(<AuthPage />);
     </script>
 </body>
 </html>
