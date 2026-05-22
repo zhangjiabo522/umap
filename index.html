@@ -84,14 +84,14 @@
 
         /* ===== App Shell (logged in) ===== */
         .app-shell { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; background: #F0F4F8; }
-        .app-header { background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-mid) 60%, var(--bg-end) 100%); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 20px rgba(15,20,55,0.2); flex-shrink: 0; }
-        .app-header-brand { display: flex; align-items: center; gap: 10px; }
-        .app-header-logo { width: 36px; height: 36px; border-radius: 11px; overflow: hidden; background: #fff; padding: 3px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-        .app-header-logo img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; display: block; }
-        .app-header-title { font-family: var(--font-heading); font-weight: 800; font-size: 20px; color: #FFFFFF; letter-spacing: -0.02em; }
-        .app-header-user { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 5px 10px; border-radius: 999px; transition: background var(--transition-base); }
-        .app-header-user:hover { background: rgba(255,255,255,0.15); }
-        .app-header-user:active { background: rgba(255,255,255,0.1); transform: scale(0.97); }
+        .app-header { background: #FFFFFF; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+        .app-header-brand { display: flex; align-items: center; gap: 9px; }
+        .app-header-logo { width: 32px; height: 32px; border-radius: 9px; overflow: hidden; background: #F5F6FA; padding: 3px; }
+        .app-header-logo img { width: 100%; height: 100%; object-fit: contain; border-radius: 6px; display: block; }
+        .app-header-title { font-family: var(--font-heading); font-weight: 800; font-size: 18px; color: var(--text-primary); letter-spacing: -0.02em; }
+        .app-header-user { display: flex; align-items: center; gap: 7px; cursor: pointer; padding: 5px 10px; border-radius: 999px; transition: background var(--transition-base); }
+        .app-header-user:hover { background: #F5F6FA; }
+        .app-header-user:active { background: #ECEEF2; transform: scale(0.97); }
         .app-content { flex: 1; overflow-y: auto; padding-bottom: calc(64px + env(safe-area-inset-bottom)); -webkit-overflow-scrolling: touch; }
 
         /* Bottom Tab Bar — Enterprise SaaS Mobile */
@@ -790,10 +790,10 @@
                         <span className="app-header-title">UMap</span>
                     </div>
                     <div className="app-header-user" onClick={() => setActiveTab('profile')}>
-                        <Avatar size={32} style={{ background: 'linear-gradient(135deg, #6CB3FF 0%, #5EEADB 100%)', fontWeight: 700, fontSize: 13 }}>
+                        <Avatar size={30} style={{ background: 'linear-gradient(135deg, #6CB3FF 0%, #5EEADB 100%)', fontWeight: 700, fontSize: 12 }}>
                             {user.username[0].toUpperCase()}
                         </Avatar>
-                        <span style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 500, fontSize: 13 }}>{user.username}</span>
+                        <span style={{ color: 'var(--text-secondary)', fontWeight: 500, fontSize: 13 }}>{user.username}</span>
                     </div>
                 </div>
 
