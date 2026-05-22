@@ -147,18 +147,19 @@
         .home-map-page { display: flex; flex-direction: column; }
         .home-map-container { width: 100%; height: 280px; position: relative; flex-shrink: 0; background: #E8EDF2; }
         .home-map { width: 100%; height: 100%; }
-        .home-map-overlay { position: absolute; bottom: 0; left: 0; right: 0; height: 64px; background: linear-gradient(to bottom, transparent, #F0F4F8); pointer-events: none; z-index: 5; }
+        .home-map-overlay { position: absolute; bottom: 0; left: 0; right: 0; height: 80px; background: linear-gradient(to bottom, transparent 0%, #F0F4F8 100%); pointer-events: none; z-index: 5; }
+        .home-map-logo-cover { position: absolute; bottom: 0; left: 0; width: 180px; height: 44px; background: linear-gradient(to right, #F0F4F8 55%, transparent 100%); pointer-events: none; z-index: 6; }
         .home-map-status { position: absolute; top: 12px; left: 12px; z-index: 10; display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 20px; padding: 6px 12px; font-size: 12px; font-weight: 600; box-shadow: 0 2px 12px rgba(0,0,0,0.12); }
         .home-map-status.gps { color: #059669; }
         .home-map-status.ip { color: #D97706; }
         .home-map-status.loading { color: var(--primary); }
         .home-map-status.failed { color: #DC2626; }
-        .home-map-refresh { position: absolute; bottom: 72px; right: 14px; z-index: 10; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 12px rgba(0,0,0,0.15); color: var(--primary); font-size: 18px; -webkit-tap-highlight-color: transparent; transition: background 180ms ease, box-shadow 180ms ease, transform 180ms ease; }
+        .home-map-refresh { position: absolute; bottom: 80px; right: 14px; z-index: 10; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 12px rgba(0,0,0,0.15); color: var(--primary); font-size: 18px; -webkit-tap-highlight-color: transparent; transition: background 180ms ease, box-shadow 180ms ease, transform 180ms ease; }
         .home-map-refresh:hover { background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
         .home-map-refresh:active { transform: scale(0.93); }
         @keyframes map-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .home-map-refresh.spinning .anticon { animation: map-spin 0.7s linear infinite; }
-        .home-scroll-area { padding: 10px 16px 0; margin-top: -44px; border-radius: 28px 28px 0 0; background: #F0F4F8; position: relative; z-index: 10; box-shadow: 0 -16px 48px rgba(15,20,55,0.18); }
+        .home-scroll-area { padding: 10px 16px 0; margin-top: -48px; border-radius: 28px 28px 0 0; background: #F0F4F8; position: relative; z-index: 10; box-shadow: 0 -20px 60px rgba(15,20,55,0.22), 0 -2px 0 rgba(255,255,255,0.9); }
         .home-scroll-area::before { content: ''; display: block; width: 36px; height: 4px; border-radius: 2px; background: rgba(15,20,55,0.12); margin: 0 auto 14px; }
 
         /* AI Tab */
@@ -730,6 +731,7 @@
                 <div className="home-map-container">
                     <div ref={mapContainerRef} className="home-map"></div>
                     <div className="home-map-overlay"></div>
+                    <div className="home-map-logo-cover"></div>
                     <div className={`home-map-status ${locStatus}`}>{statusIcon}{locLabel}</div>
                     <button className={`home-map-refresh${refreshing ? ' spinning' : ''}`} onClick={handleRefresh} aria-label="重新定位">
                         <AimOutlined />
