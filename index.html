@@ -854,7 +854,7 @@
     }
 
     // ==================== Home Tab ====================
-    function HomeTab({ user, onGoPrefs, onNavigate }) {
+    function HomeTab({ user, onGoPrefs, onNavigate, onLocationUpdate }) {
         const mapContainerRef = useRef(null);
         const mapRef = useRef(null);
         const AMapRef = useRef(null);
@@ -987,6 +987,7 @@
             function applyLngLat(lng, lat, type) {
                 map.setCenter([lng, lat]);
                 map.setZoom(17);
+                if (onLocationUpdate) onLocationUpdate({ lng, lat });
                 const marker = new AMap.Marker({
                     position: [lng, lat],
                     content: '<div style="width:18px;height:18px;border-radius:50%;background:#1565EF;border:3px solid #fff;box-shadow:0 0 0 5px rgba(21,101,239,0.22),0 2px 8px rgba(0,0,0,0.2)"></div>',
@@ -1158,7 +1159,7 @@
     }
 
     // ==================== AI Tab ====================
-    function AITab() {
+    function AITab({ userLocation }) {
         const [messages, setMessages] = useState([]);
         const [loading, setLoading] = useState(false);
         const [inputText, setInputText] = useState('');
@@ -1420,6 +1421,8 @@
             if (sessionId) formData.append('session_id', sessionId);
             if (searchResults) formData.append('search_results', searchResults);
             if (searchResultsRaw) formData.append('search_results_json', JSON.stringify(searchResultsRaw));
+            if (userLocation) formData.append('user_lng', userLocation.lng);
+            if (userLocation) formData.append('user_lat', userLocation.lat);
             attachedFiles.forEach(f => formData.append('attachments[]', f));
             setAttachedFiles([]);
             setSelectedFavorite(null);
@@ -2376,6 +2379,7 @@
         const [subPage, setSubPage] = useState(null);
         const [headerSearch, setHeaderSearch] = useState('');
         const [citySearchQuery, setCitySearchQuery] = useState('');
+        const [userLocation, setUserLocation] = useState(null);
 
         useEffect(() => {
             if (user && user.has_preferences === false) {
@@ -2434,8 +2438,8 @@
                 </div>
 
                 <div className="app-content">
-                    {activeTab === 'home' && <HomeTab user={user} onGoPrefs={() => setShowPrefs(true)} onNavigate={setSubPage} />}
-                    {activeTab === 'ai' && <AITab />}
+                    {activeTab === 'home' && <HomeTab user={user} onGoPrefs={() => setShowPrefs(true)} onNavigate={setSubPage} onLocationUpdate={setUserLocation} />}
+                    {activeTab === 'ai' && <AITab userLocation={userLocation} />}
                     {activeTab === 'profile' && <ProfileTab user={user} onLogout={onLogout} onGoPrefs={() => setShowPrefs(true)} onNavigate={setSubPage} />}
                 </div>
 

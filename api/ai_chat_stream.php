@@ -38,6 +38,8 @@ try {
     $attachments = normalizeUploadedFiles($_FILES['attachments'] ?? null);
     $sessionId = intval($_POST['session_id'] ?? 0);
     $searchResults = trim($_POST['search_results'] ?? '');
+    $userLng = floatval($_POST['user_lng'] ?? 0);
+    $userLat = floatval($_POST['user_lat'] ?? 0);
     $searchResultsData = [];
     $rawJson = $_POST['search_results_json'] ?? '';
     if ($rawJson !== '') {
@@ -80,7 +82,7 @@ try {
 
     $text = buildUserText($message, $favorite, $mediaItems, $searchResults);
 
-    $mimoMessages = [['role' => 'system', 'content' => buildSystemPrompt($profile)]];
+    $mimoMessages = [['role' => 'system', 'content' => buildSystemPrompt($profile, $userLng, $userLat)]];
     foreach ($historyMessages as $hm) {
         $mimoMessages[] = ['role' => $hm['role'] === 'user' ? 'user' : 'assistant', 'content' => $hm['content']];
     }
@@ -324,11 +326,15 @@ function profileItemsText(array $items): string {
     return implode('；', $lines);
 }
 
-function buildSystemPrompt(array $profile): string {
+function buildSystemPrompt(array $profile, float $userLng = 0, float $userLat = 0): string {
     $prefs = empty($profile['prefs']) ? '暂无明确偏好' : implode('、', $profile['prefs']);
     $favorites = profileItemsText($profile['favorites']);
     $likes = profileItemsText($profile['likes']);
     $dislikes = profileItemsText($profile['dislikes']);
+    $locationInfo = '';
+    if ($userLng != 0 && $userLat != 0) {
+        $locationInfo = "- 用户当前位置坐标：经度 {$userLng}，纬度 {$userLat}（高德GCJ-02坐标系）";
+    }
     return <<<PROMPT
 你是 UMap 的 AI 旅行助手，请使用中文回答，输出 Markdown。
 
@@ -337,6 +343,7 @@ function buildSystemPrompt(array $profile): string {
 - 已收藏地点：{$favorites}
 - 点赞过的地点：{$likes}
 - 踩过/不喜欢的地点：{$dislikes}
+{$locationInfo}
 
 回答规则：
 1. 必须结合用户画像、上传的图片/音频/视频内容和用户选择的收藏地点。
