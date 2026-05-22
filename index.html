@@ -1177,7 +1177,6 @@
         const [sessions, setSessions] = useState([]);
         const chatEndRef = useRef(null);
         const textareaRef = useRef(null);
-        const imgInputRef = useRef(null);
 
         useEffect(() => { loadFavorites(); }, []);
         useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
@@ -1517,7 +1516,7 @@
                         <div className="ai-welcome">
                             <div className="ai-welcome-icon"><RobotOutlined style={{ color: 'var(--primary)', fontSize: 30 }} /></div>
                             <h3>AI 旅行助手</h3>
-                            <p>问我任何旅行问题，可以上传图片或选择收藏地点一起发送</p>
+                            <p>问我任何旅行问题，可以收藏地点一起发送</p>
                         </div>
                     )}
                     {messages.map((msg, i) => {
@@ -1620,8 +1619,6 @@
                         <button className="ai-send-btn" disabled={!canSend} onClick={sendMessage}><SendOutlined /></button>
                     </div>
                     <div className="ai-actions">
-                        <input ref={imgInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => { if (e.target.files.length) addFiles(Array.from(e.target.files)); e.target.value = ''; }} />
-                        <button className="ai-action-btn" title="上传图片" onClick={() => imgInputRef.current?.click()}><PictureOutlined /></button>
                         <button className="ai-action-btn" title="选择收藏地点" onClick={() => { loadFavorites(); setShowFavPicker(true); }}><EnvironmentOutlined /></button>
                         <button className={`ai-action-btn${searchEnabled ? ' active' : ''}`} title={searchEnabled ? '关闭联网搜索' : '开启联网搜索'} onClick={() => setSearchEnabled(v => !v)}><SearchOutlined /></button>
                     </div>
