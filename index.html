@@ -162,7 +162,7 @@
         .home-sheet-handle:active { cursor: grabbing; }
         .home-sheet-handle::before { content: ''; display: block; width: 36px; height: 4px; border-radius: 2px; background: rgba(15,20,55,0.12); margin: 0 auto 14px; }
         .home-sheet-content { flex: 1; overflow-y: auto; padding: 0 16px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
-        .home-map-peek { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 20px 0 36px; color: var(--primary); font-size: 14px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; opacity: 0.7; }
+
 
 
         /* AI Tab */
@@ -1023,10 +1023,6 @@
                             <h4>收藏地点</h4>
                             <p>查看和管理你保存的地点</p>
                         </div>
-                    </div>
-                    <div className="home-map-peek" onClick={() => snapSheet(false)}>
-                        <EnvironmentOutlined />
-                        <span>查看地图</span>
                     </div>
                     </div>
                 </div>
