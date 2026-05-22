@@ -268,6 +268,19 @@
         .attraction-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 10px; }
         .attraction-tags { display: flex; flex-wrap: wrap; gap: 6px; }
         .attraction-tag { padding: 3px 10px; background: #EEF4FF; color: var(--primary); border-radius: 999px; font-size: 11px; font-weight: 500; }
+        .attraction-rating { font-size: 12px; color: #F59E0B; margin-left: 8px; font-weight: 500; }
+        .attraction-addr { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; }
+        /* Search Progress */
+        .search-progress-box { background: var(--surface); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(15,20,55,0.06); }
+        .search-step { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; }
+        .search-step-icon { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .search-step-pending .search-step-icon { color: var(--text-muted); }
+        .search-step-active .search-step-icon { color: var(--primary); }
+        .search-step-done .search-step-icon { color: #22C55E; }
+        .search-step-label { font-weight: 500; color: var(--text-primary); }
+        .search-step-pending .search-step-label { color: var(--text-muted); }
+        .search-step-detail { margin-left: auto; font-size: 11px; color: var(--text-muted); max-width: 160px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .step-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
         .city-search-status { text-align: center; padding: 60px 20px; }
 
         /* ===== Preference Page ===== */
@@ -1268,51 +1281,129 @@
     }
 
     // ==================== City Search Page ====================
+    const SEARCH_STEPS = [
+        { id: 1, label: '高德地图景点搜索' },
+        { id: 2, label: '搜索景点评价' },
+        { id: 3, label: 'AI 分析匹配度' },
+    ];
+
     function CitySearchPage({ onBack, initialCity }) {
         const [city, setCity] = useState(initialCity || '');
         const [loading, setLoading] = useState(false);
+        const [loadingMore, setLoadingMore] = useState(false);
         const [attractions, setAttractions] = useState([]);
         const [searched, setSearched] = useState(false);
         const [favorites, setFavorites] = useState(new Set());
+        const [stepStates, setStepStates] = useState({ 1: 'pending', 2: 'pending', 3: 'pending' });
+        const [stepDetails, setStepDetails] = useState({ 1: '', 2: '', 3: '' });
+        const [hasMore, setHasMore] = useState(false);
+        const [nextPage, setNextPage] = useState(2);
         const inputRef = useRef(null);
+        const loadMoreRef = useRef(null);
+        const currentCityRef = useRef('');
 
         useEffect(() => {
             if (inputRef.current) inputRef.current.focus();
-            if (initialCity && initialCity.trim()) search(initialCity.trim());
+            if (initialCity && initialCity.trim()) doSearch(initialCity.trim(), 1);
         }, []);
 
-        async function search(overrideCity) {
-            const c = (overrideCity || city).trim();
-            if (!c) return;
-            setLoading(true);
-            setSearched(true);
-            setAttractions([]);
+        useEffect(() => {
+            if (!hasMore || loading || loadingMore) return;
+            const obs = new IntersectionObserver(entries => {
+                if (entries[0].isIntersecting) loadMore();
+            }, { threshold: 0.1 });
+            if (loadMoreRef.current) obs.observe(loadMoreRef.current);
+            return () => obs.disconnect();
+        }, [hasMore, loading, loadingMore, nextPage]);
+
+        async function doSearch(cityName, page) {
+            const isFirst = page === 1;
+            if (isFirst) {
+                setLoading(true);
+                setSearched(true);
+                setAttractions([]);
+                setHasMore(false);
+                setNextPage(2);
+                setStepStates({ 1: 'pending', 2: 'pending', 3: 'pending' });
+                setStepDetails({ 1: '', 2: '', 3: '' });
+            } else {
+                setLoadingMore(true);
+            }
+            currentCityRef.current = cityName;
+
             try {
-                const res = await fetch('/api/city_search.php', {
+                const resp = await fetch('/api/city_search_stream.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ city: c }),
+                    body: JSON.stringify({ city: cityName, page }),
                 });
-                const data = await res.json();
-                if (data.success) setAttractions(data.attractions || []);
-                else message.error(data.message || '搜索失败');
+
+                const reader = resp.body.getReader();
+                const dec = new TextDecoder();
+                let buf = '';
+
+                const parseEvents = (chunk) => {
+                    buf += chunk;
+                    const parts = buf.split('\n\n');
+                    buf = parts.pop();
+                    for (const block of parts) {
+                        let evtType = '', evtData = '';
+                        for (const line of block.split('\n')) {
+                            if (line.startsWith('event: ')) evtType = line.slice(7).trim();
+                            else if (line.startsWith('data: ')) evtData = line.slice(6).trim();
+                        }
+                        if (!evtType || !evtData) continue;
+                        try {
+                            const d = JSON.parse(evtData);
+                            if (evtType === 'status') {
+                                const s = d.step;
+                                setStepStates(prev => ({ ...prev, [s]: d.done ? 'done' : 'active' }));
+                                setStepDetails(prev => ({ ...prev, [s]: d.message }));
+                            } else if (evtType === 'attraction') {
+                                setAttractions(prev => [...prev, d]);
+                            } else if (evtType === 'done') {
+                                setHasMore(d.hasMore);
+                                setNextPage(d.nextPage);
+                            } else if (evtType === 'error') {
+                                message.error(d.message || '搜索失败');
+                            }
+                        } catch {}
+                    }
+                };
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    parseEvents(dec.decode(value, { stream: true }));
+                }
             } catch { message.error('网络错误，请重试'); }
-            setLoading(false);
+
+            if (isFirst) setLoading(false);
+            else setLoadingMore(false);
+        }
+
+        function search(overrideCity) {
+            const c = (overrideCity || city).trim();
+            if (!c || loading) return;
+            doSearch(c, 1);
+        }
+
+        function loadMore() {
+            if (loadingMore || loading) return;
+            doSearch(currentCityRef.current, nextPage);
         }
 
         function toggleFavorite(e, name) {
             e.stopPropagation();
-            setFavorites(prev => {
-                const next = new Set(prev);
-                next.has(name) ? next.delete(name) : next.add(name);
-                return next;
-            });
+            setFavorites(prev => { const n = new Set(prev); n.has(name) ? n.delete(name) : n.add(name); return n; });
         }
 
         function navigate(e, a) {
             e.stopPropagation();
-            window.open(`https://uri.amap.com/search?query=${encodeURIComponent(a.name)}&city=${encodeURIComponent(city)}`, '_blank');
+            window.open(`https://uri.amap.com/search?query=${encodeURIComponent(a.name)}&city=${encodeURIComponent(currentCityRef.current || city)}`, '_blank');
         }
+
+        const showProgress = loading || (searched && (stepStates[1] !== 'pending' || stepStates[2] !== 'pending' || stepStates[3] !== 'pending'));
 
         return (
             <div className="city-search-page">
@@ -1329,22 +1420,33 @@
                             onKeyDown={e => e.key === 'Enter' && search()}
                         />
                     </div>
-                    <button className="city-search-btn" onClick={search}>搜索</button>
+                    <button className="city-search-btn" onClick={() => search()} disabled={loading}>{loading ? '搜索中' : '搜索'}</button>
                 </div>
                 <div className="city-search-content">
-                    {loading ? (
-                        <div className="city-search-status">
-                            <LoadingOutlined style={{ fontSize: 32, color: 'var(--primary)' }} />
-                            <div style={{ marginTop: 16, color: 'var(--text-secondary)', fontSize: 14 }}>AI 正在搜索 {city} 的景点...</div>
-                            <div style={{ marginTop: 8, color: 'var(--text-muted)', fontSize: 12 }}>根据你的偏好智能排序中</div>
+                    {showProgress && (
+                        <div className="search-progress-box">
+                            {SEARCH_STEPS.map(s => {
+                                const st = stepStates[s.id];
+                                return (
+                                    <div key={s.id} className={`search-step search-step-${st}`}>
+                                        <span className="search-step-icon">
+                                            {st === 'done' ? <CheckCircleFilled /> : st === 'active' ? <LoadingOutlined /> : <span className="step-dot" />}
+                                        </span>
+                                        <span className="search-step-label">{s.label}</span>
+                                        {stepDetails[s.id] ? <span className="search-step-detail">{stepDetails[s.id]}</span> : null}
+                                    </div>
+                                );
+                            })}
                         </div>
-                    ) : !searched ? (
+                    )}
+
+                    {!searched ? (
                         <div className="city-search-status">
                             <div className="sub-empty-icon"><SearchOutlined /></div>
                             <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>搜索城市景点</h3>
                             <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6 }}>输入城市名称，AI 将根据你的偏好推荐最适合的景点</p>
                         </div>
-                    ) : attractions.length === 0 ? (
+                    ) : !loading && attractions.length === 0 ? (
                         <div className="city-search-status">
                             <div className="sub-empty-icon"><EnvironmentOutlined /></div>
                             <h3 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>未找到景点</h3>
@@ -1352,13 +1454,18 @@
                         </div>
                     ) : (
                         <>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
-                                找到 {attractions.length} 个景点 · 已根据偏好排序
-                            </div>
+                            {attractions.length > 0 && (
+                                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>
+                                    已找到 {attractions.length} 个景点 · 已根据偏好排序
+                                </div>
+                            )}
                             {attractions.map((a, i) => (
                                 <div key={i} className="attraction-card" onClick={e => navigate(e, a)}>
                                     <div className="attraction-card-header">
-                                        <span className="attraction-name">{a.name}</span>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <span className="attraction-name">{a.name}</span>
+                                            {a.rating && <span className="attraction-rating">⭐ {a.rating}</span>}
+                                        </div>
                                         <div className="attraction-actions">
                                             <button
                                                 className={`attraction-action-btn${favorites.has(a.name) ? ' favorited' : ''}`}
@@ -1366,14 +1473,13 @@
                                                 aria-label="收藏">
                                                 <StarFilled />
                                             </button>
-                                            <button className="attraction-action-btn nav-btn"
-                                                onClick={e => navigate(e, a)}
-                                                aria-label="导航">
+                                            <button className="attraction-action-btn nav-btn" onClick={e => navigate(e, a)} aria-label="导航">
                                                 <CompassOutlined />
                                             </button>
                                         </div>
                                     </div>
                                     {a.description && <div className="attraction-desc">{a.description}</div>}
+                                    {a.address && <div className="attraction-addr"><EnvironmentOutlined style={{marginRight:4,fontSize:11}}/>{a.address}</div>}
                                     {a.tags && a.tags.length > 0 && (
                                         <div className="attraction-tags">
                                             {a.tags.slice(0, 4).map((t, j) => <span key={j} className="attraction-tag">{t}</span>)}
@@ -1381,6 +1487,15 @@
                                     )}
                                 </div>
                             ))}
+                            <div ref={loadMoreRef} style={{ height: 1 }} />
+                            {loadingMore && (
+                                <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)', fontSize: 13 }}>
+                                    <LoadingOutlined style={{ marginRight: 8 }} />加载更多景点...
+                                </div>
+                            )}
+                            {!loading && !loadingMore && !hasMore && attractions.length > 0 && (
+                                <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)', fontSize: 12 }}>已显示全部景点</div>
+                            )}
                         </>
                     )}
                 </div>
