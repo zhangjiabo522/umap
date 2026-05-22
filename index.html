@@ -866,41 +866,74 @@
 
         function locateUser(AMap, map) {
             setLocStatus('loading');
-            setLocLabel('定位中...');
+            setLocLabel('GPS 精准定位中...');
             setRefreshing(true);
             if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
 
-            const geo = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 8000, zoomToAccuracy: false });
-            geo.getCurrentPosition((status, result) => {
-                if (status === 'complete') {
-                    const { lng, lat } = result.position;
-                    map.setCenter([lng, lat]);
-                    map.setZoom(15);
-                    const marker = new AMap.Marker({
-                        position: [lng, lat],
-                        content: '<div style="width:18px;height:18px;border-radius:50%;background:#1565EF;border:3px solid #fff;box-shadow:0 0 0 5px rgba(21,101,239,0.22),0 2px 8px rgba(0,0,0,0.2)"></div>',
-                        offset: new AMap.Pixel(-9, -9),
-                        zIndex: 200,
-                    });
-                    map.add(marker);
-                    markerRef.current = marker;
-                    setLocStatus('gps');
-                    setLocLabel('GPS 定位');
-                    setRefreshing(false);
-                } else {
-                    new AMap.CitySearch().getLocalCity((s2, r2) => {
-                        if (s2 === 'complete' && r2.bounds) {
-                            map.setBounds(r2.bounds);
-                            setLocStatus('ip');
-                            setLocLabel(r2.city || 'IP 定位');
-                        } else {
-                            setLocStatus('failed');
-                            setLocLabel('定位失败');
-                        }
-                        setRefreshing(false);
-                    });
-                }
+            const geo = new AMap.Geolocation({
+                enableHighAccuracy: true,
+                timeout: 20000,
+                maximumAge: 0,
+                convert: true,
+                GeoLocationFirst: true,
+                zoomToAccuracy: true,
+                showCircle: true,
             });
+
+            let best = null;
+            let attempts = 0;
+            const maxAttempts = 3;
+
+            function applyPosition(result) {
+                const { lng, lat } = result.position;
+                map.setCenter([lng, lat]);
+                map.setZoom(17);
+                const marker = new AMap.Marker({
+                    position: [lng, lat],
+                    content: '<div style="width:18px;height:18px;border-radius:50%;background:#1565EF;border:3px solid #fff;box-shadow:0 0 0 5px rgba(21,101,239,0.22),0 2px 8px rgba(0,0,0,0.2)"></div>',
+                    offset: new AMap.Pixel(-9, -9),
+                    zIndex: 200,
+                });
+                map.add(marker);
+                markerRef.current = marker;
+                const accuracy = result.accuracy ? ` ±${Math.round(result.accuracy)}米` : '';
+                setLocStatus('gps');
+                setLocLabel(`GPS 精准定位${accuracy}`);
+                setRefreshing(false);
+            }
+
+            function fallbackCity() {
+                new AMap.CitySearch().getLocalCity((s2, r2) => {
+                    if (s2 === 'complete' && r2.bounds) {
+                        map.setBounds(r2.bounds);
+                        setLocStatus('ip');
+                        setLocLabel(r2.city || 'IP 定位');
+                    } else {
+                        setLocStatus('failed');
+                        setLocLabel('定位失败');
+                    }
+                    setRefreshing(false);
+                });
+            }
+
+            function tryLocate() {
+                attempts++;
+                geo.getCurrentPosition((status, result) => {
+                    if (status === 'complete') {
+                        if (!best || ((result.accuracy || Infinity) < (best.accuracy || Infinity))) best = result;
+                        if ((result.accuracy && result.accuracy <= 30) || attempts >= maxAttempts) applyPosition(best);
+                        else setTimeout(tryLocate, 1200);
+                    } else if (best) {
+                        applyPosition(best);
+                    } else if (attempts < maxAttempts) {
+                        setTimeout(tryLocate, 1200);
+                    } else {
+                        fallbackCity();
+                    }
+                });
+            }
+
+            tryLocate();
         }
 
         useEffect(() => {
