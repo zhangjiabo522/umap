@@ -43,16 +43,16 @@ try {
 } catch (Exception $e) {}
 
 // ── Step 1: DeepSeek 搜索候选景点 ─────────────────────────────────────────────
-sendEvt('status', ['step' => 1, 'message' => 'DeepSeek V4 Flash 正在搜索候选景点...']);
+sendEvt('status', ['step' => 1, 'message' => 'AI 正在分析喜好并搜索景点...']);
 $candidates = deepseekSearchAttractions($city, $userPrefs, $page);
 
 if (empty($candidates)) {
-    sendEvt('error', ['message' => 'DeepSeek 景点搜索失败，请重试']);
+    sendEvt('error', ['message' => 'AI 景点分析失败，请重试']);
     exit;
 }
 
 $total = count($candidates);
-sendEvt('status', ['step' => 1, 'message' => "DeepSeek 找到 {$total} 个候选景点", 'done' => true]);
+sendEvt('status', ['step' => 1, 'message' => "AI 已筛选出 {$total} 个候选景点", 'done' => true]);
 
 // ── Step 2: AMap 补充坐标和评分 ──────────────────────────────────────────────
 sendEvt('status', ['step' => 2, 'message' => "正在从高德地图补充详情 (0/{$total})..."]);

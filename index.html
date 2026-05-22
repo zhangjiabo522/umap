@@ -1128,6 +1128,46 @@
 
     // ==================== Favorites Page ====================
     function FavoritesPage({ onBack }) {
+        const [items, setItems] = useState([]);
+        const [loading, setLoading] = useState(true);
+
+        useEffect(() => { loadFavorites(); }, []);
+
+        async function loadFavorites() {
+            setLoading(true);
+            try {
+                const res = await fetch('/api/favorites.php');
+                const data = await res.json();
+                if (data.success) setItems(data.favorites || []);
+                else message.error(data.message || '获取收藏失败');
+            } catch { message.error('网络错误，请重试'); }
+            setLoading(false);
+        }
+
+        async function removeFavorite(e, name) {
+            e.stopPropagation();
+            try {
+                const res = await fetch('/api/favorites.php', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name }),
+                });
+                const data = await res.json();
+                if (data.success) setItems(prev => prev.filter(i => i.name !== name));
+                else message.error(data.message || '取消收藏失败');
+            } catch { message.error('网络错误，请重试'); }
+        }
+
+        function navigate(a) {
+            const cityName = a.city || '';
+            if (a.location) {
+                const [lng, lat] = a.location.split(',');
+                window.location.href = `https://uri.amap.com/navigation?to=${lng},${lat},${encodeURIComponent(a.name)}&mode=car&policy=1&src=umap&coordinate=gaode&callnative=1`;
+            } else {
+                window.location.href = `https://uri.amap.com/search?query=${encodeURIComponent(a.name)}&city=${encodeURIComponent(cityName)}&callnative=1`;
+            }
+        }
+
         return (
             <div className="sub-page">
                 <div className="sub-page-header">
@@ -1135,11 +1175,40 @@
                     <span className="sub-page-title">我的收藏</span>
                 </div>
                 <div className="sub-page-content">
-                    <div className="sub-empty">
-                        <div className="sub-empty-icon"><StarFilled /></div>
-                        <h3>暂无收藏</h3>
-                        <p>收藏你感兴趣的地点，方便随时查看与规划行程</p>
-                    </div>
+                    {loading ? (
+                        <div className="sub-empty">
+                            <div className="sub-empty-icon"><LoadingOutlined /></div>
+                            <h3>正在加载收藏</h3>
+                        </div>
+                    ) : items.length === 0 ? (
+                        <div className="sub-empty">
+                            <div className="sub-empty-icon"><StarFilled /></div>
+                            <h3>暂无收藏</h3>
+                            <p>收藏你感兴趣的地点，方便随时查看与规划行程</p>
+                        </div>
+                    ) : (
+                        <div>
+                            {items.map(a => (
+                                <div key={a.id} className="attraction-card" onClick={() => navigate(a)}>
+                                    <div className="attraction-card-header">
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <span className="attraction-name">{a.name}</span>
+                                            {a.rating && <span className="attraction-rating">⭐ {a.rating}</span>}
+                                            {a.confidence !== null && a.confidence !== undefined && <span className="attraction-confidence">匹配度 {Math.round(Number(a.confidence) * 100)}%</span>}
+                                        </div>
+                                        <button className="attraction-action-btn favorited" onClick={e => removeFavorite(e, a.name)} aria-label="取消收藏"><StarFilled /></button>
+                                    </div>
+                                    {a.description && <div className="attraction-desc">{a.description}</div>}
+                                    {a.address && <div className="attraction-addr"><EnvironmentOutlined style={{marginRight:4,fontSize:11}}/>{a.address}</div>}
+                                    {a.tags && a.tags.length > 0 && (
+                                        <div className="attraction-tags">
+                                            {a.tags.slice(0, 4).map((t, j) => <span key={j} className="attraction-tag">{t}</span>)}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -1299,7 +1368,7 @@
 
     // ==================== City Search Page ====================
     const SEARCH_STEPS = [
-        { id: 1, label: 'DeepSeek V4 Flash 搜索景点' },
+        { id: 1, label: 'AI 正在分析喜好' },
         { id: 2, label: '高德地图补充详情' },
     ];
 
@@ -1320,8 +1389,17 @@
 
         useEffect(() => {
             if (inputRef.current) inputRef.current.focus();
+            loadFavoriteNames();
             if (initialCity && initialCity.trim()) doSearch(initialCity.trim(), 1);
         }, []);
+
+        async function loadFavoriteNames() {
+            try {
+                const res = await fetch('/api/favorites.php');
+                const data = await res.json();
+                if (data.success) setFavorites(new Set((data.favorites || []).map(i => i.name)));
+            } catch {}
+        }
 
         useEffect(() => {
             if (!hasMore || loading || loadingMore) return;
@@ -1409,9 +1487,21 @@
             doSearch(currentCityRef.current, nextPage);
         }
 
-        function toggleFavorite(e, name) {
+        async function toggleFavorite(e, attraction) {
             e.stopPropagation();
-            setFavorites(prev => { const n = new Set(prev); n.has(name) ? n.delete(name) : n.add(name); return n; });
+            const name = attraction.name;
+            const isFav = favorites.has(name);
+            try {
+                const res = await fetch('/api/favorites.php', {
+                    method: isFav ? 'DELETE' : 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...attraction, city: currentCityRef.current || city }),
+                });
+                const data = await res.json();
+                if (!data.success) { message.error(data.message || '操作失败'); return; }
+                setFavorites(prev => { const n = new Set(prev); isFav ? n.delete(name) : n.add(name); return n; });
+                message.success(isFav ? '已取消收藏' : '已收藏');
+            } catch { message.error('网络错误，请重试'); }
         }
 
         function navigate(e, a) {
@@ -1507,7 +1597,7 @@
                                         <div className="attraction-actions">
                                             <button
                                                 className={`attraction-action-btn${favorites.has(a.name) ? ' favorited' : ''}`}
-                                                onClick={e => toggleFavorite(e, a.name)}
+                                                onClick={e => toggleFavorite(e, a)}
                                                 aria-label="收藏">
                                                 <StarFilled />
                                             </button>
