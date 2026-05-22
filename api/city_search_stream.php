@@ -42,29 +42,29 @@ try {
     $userPrefs = $stmt->fetchAll(PDO::FETCH_COLUMN);
 } catch (Exception $e) {}
 
-// ── Step 1: AMap 广搜候选景点 ─────────────────────────────────────────────────
-sendEvt('status', ['step' => 1, 'message' => '正在从高德地图搜索景点...']);
-$pois = amapSearch($city, $page);
+// ── Step 1: DeepSeek 搜索候选景点 ─────────────────────────────────────────────
+sendEvt('status', ['step' => 1, 'message' => 'DeepSeek V4 Flash 正在搜索候选景点...']);
+$candidates = deepseekSearchAttractions($city, $userPrefs, $page);
 
-if (empty($pois)) {
-    sendEvt('error', ['message' => '高德地图未找到景点，请尝试其他城市名称']);
+if (empty($candidates)) {
+    sendEvt('error', ['message' => 'DeepSeek 景点搜索失败，请重试']);
     exit;
 }
 
-$total = count($pois);
-sendEvt('status', ['step' => 1, 'message' => "找到 {$total} 个候选景点", 'done' => true]);
+$total = count($candidates);
+sendEvt('status', ['step' => 1, 'message' => "DeepSeek 找到 {$total} 个候选景点", 'done' => true]);
 
-// ── Step 2: DeepSeek 按偏好筛选 + 置信度排序 ──────────────────────────────────
-sendEvt('status', ['step' => 2, 'message' => 'DeepSeek AI 正在根据偏好筛选景点...']);
-$filtered = deepseekFilter($city, $pois, $userPrefs);
-sendEvt('status', ['step' => 2, 'message' => '筛选完成，共 ' . count($filtered) . ' 个匹配景点', 'done' => true]);
+// ── Step 2: AMap 补充坐标和评分 ──────────────────────────────────────────────
+sendEvt('status', ['step' => 2, 'message' => "正在从高德地图补充详情 (0/{$total})..."]);
+$enriched = parallelAmapLookup($city, $candidates, $total);
+sendEvt('status', ['step' => 2, 'message' => '高德地图详情补充完成', 'done' => true]);
 
-foreach ($filtered as $a) {
+foreach ($enriched as $a) {
     sendEvt('attraction', $a);
 }
 
-$hasMore = ($total >= 20);
-sendEvt('done', ['total' => count($filtered), 'hasMore' => $hasMore, 'nextPage' => $page + 1]);
+$hasMore = ($total >= 12);
+sendEvt('done', ['total' => count($enriched), 'hasMore' => $hasMore, 'nextPage' => $page + 1]);
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -75,81 +75,133 @@ function sendEvt(string $type, $data): void {
     flush();
 }
 
-function amapSearch(string $city, int $page): array {
-    $url = 'https://restapi.amap.com/v3/place/text?' . http_build_query([
-        'key'        => AMAP_KEY,
-        'keywords'   => '景点',
-        'city'       => $city,
-        'types'      => '110000',
-        'offset'     => 20,
-        'page'       => $page,
-        'extensions' => 'all',
-        'output'     => 'json',
-    ]);
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 10, CURLOPT_SSL_VERIFYPEER => false]);
-    $resp = curl_exec($ch);
-    curl_close($ch);
-    if (!$resp) return [];
-    $d = json_decode($resp, true);
-    if (($d['status'] ?? '') !== '1') return [];
-    return $d['pois'] ?? [];
-}
-
-function deepseekFilter(string $city, array $pois, array $userPrefs): array {
-    $prefsText = empty($userPrefs) ? '无特定偏好（返回所有景点，置信度按综合热度排序）' : implode('、', $userPrefs);
-
-    // 构建景点列表供 AI 分析
-    $poiLines = [];
-    foreach ($pois as $i => $poi) {
-        $rating  = $poi['biz_ext']['rating'] ?? '';
-        $type    = $poi['type'] ?? '';
-        $address = $poi['address'] ?? (($poi['pname'] ?? '') . ($poi['cityname'] ?? '') . ($poi['adname'] ?? ''));
-        $loc     = $poi['location'] ?? '';
-        $poiLines[] = ($i + 1) . ". 【{$poi['name']}】类型:{$type} 地址:{$address} 评分:{$rating} 坐标:{$loc}";
-    }
-    $poiText = implode("\n", $poiLines);
+function deepseekSearchAttractions(string $city, array $userPrefs, int $page): array {
+    $prefsText = empty($userPrefs) ? '无特定偏好（推荐该城市综合热度高、适合大多数游客的景点）' : implode('、', $userPrefs);
+    $offset = ($page - 1) * 12 + 1;
+    $end = $offset + 11;
 
     $prompt = <<<PROMPT
 用户的喜好标签：{$prefsText}
 
-请你根据用户喜好对以下{$city}景点进行筛选和排序，只返回用户可能喜欢的景点：
-
-{$poiText}
+请你搜索并推荐{$city}的景点（第{$offset}到第{$end}个），并根据用户喜好对景点分类，只返回用户可能喜欢的景点。
 
 筛选规则：
-1. 谨慎筛选——只保留与用户偏好标签高度或中度匹配的景点
-2. 将用户明显不感兴趣的景点完全排除，不出现在返回列表中
-3. 对保留的景点按 confidence 从高到低排序
-4. confidence 表示该景点与用户偏好的匹配置信度（0.01~1.00），越高越匹配
-5. 用户不想看到的景点绝对不出现在返回列表中
-6. 只返回 JSON 数组，不要任何其他文字或代码块标记
+1. 谨慎筛选，筛掉用户可能不喜欢的景点
+2. 用户不想看的景点不要出现在返回列表
+3. 按 confidence 从高到低排序
+4. confidence 表示用户可能喜欢该景点的置信度，范围 0.01 到 1.00
+5. 不同页尽量返回不同景点
+6. 每次最多返回12个景点
+7. 只返回 JSON 数组，不要任何其他文字或代码块标记
 
-返回格式（严格遵守）：
-[{"name":"景点名","description":"50字内简介，突出与用户偏好的匹配点","address":"详细地址","tags":["标签1","标签2"],"rating":"评分（原样保留，无则空字符串）","location":"经度,纬度（原样保留，无则空字符串）","confidence":0.95}]
+返回格式：
+[{"name":"景点名","description":"50字内简介，突出与用户偏好的匹配点","tags":["标签1","标签2"],"confidence":0.95}]
 PROMPT;
 
+    $result = callDeepSeek($prompt, '你是专业旅游顾问。严格按用户偏好搜索并筛选景点，只返回JSON数组，不输出任何解释。');
+    usort($result, fn($a, $b) => ($b['confidence'] ?? 0) <=> ($a['confidence'] ?? 0));
+    return $result;
+}
+
+function parallelAmapLookup(string $city, array $candidates, int $total): array {
+    $mh = curl_multi_init();
+    $handles = [];
+
+    foreach ($candidates as $i => $candidate) {
+        $url = 'https://restapi.amap.com/v3/place/text?' . http_build_query([
+            'key'        => AMAP_KEY,
+            'keywords'   => $candidate['name'] ?? '',
+            'city'       => $city,
+            'offset'     => 1,
+            'page'       => 1,
+            'extensions' => 'all',
+            'output'     => 'json',
+        ]);
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 10, CURLOPT_SSL_VERIFYPEER => false]);
+        curl_multi_add_handle($mh, $ch);
+        $handles[$i] = ['ch' => $ch, 'candidate' => $candidate, 'done' => false];
+    }
+
+    $running = null;
+    $completed = 0;
+    do {
+        curl_multi_exec($mh, $running);
+        curl_multi_select($mh, 0.1);
+        while ($info = curl_multi_info_read($mh)) {
+            if ($info['msg'] !== CURLMSG_DONE) continue;
+            foreach ($handles as &$h) {
+                if ($h['ch'] === $info['handle'] && !$h['done']) {
+                    $h['done'] = true;
+                    $completed++;
+                    sendEvt('status', ['step' => 2, 'message' => "正在从高德地图补充详情 ({$completed}/{$total})..."]);
+                    break;
+                }
+            }
+            unset($h);
+        }
+    } while ($running > 0);
+
+    $results = [];
+    foreach ($handles as $i => $h) {
+        $resp = curl_multi_getcontent($h['ch']);
+        curl_multi_remove_handle($mh, $h['ch']);
+        curl_close($h['ch']);
+
+        $poi = null;
+        if ($resp) {
+            $d = json_decode($resp, true);
+            $pois = $d['pois'] ?? [];
+            if (!empty($pois)) $poi = $pois[0];
+        }
+
+        $candidate = $h['candidate'];
+        $address = '';
+        $rating = '';
+        $location = '';
+        if ($poi) {
+            $address = $poi['address'] ?? (($poi['pname'] ?? '') . ($poi['cityname'] ?? '') . ($poi['adname'] ?? ''));
+            $rating = $poi['biz_ext']['rating'] ?? '';
+            $location = $poi['location'] ?? '';
+        }
+
+        $results[$i] = [
+            'name' => $candidate['name'] ?? '',
+            'description' => $candidate['description'] ?? '',
+            'tags' => $candidate['tags'] ?? [],
+            'confidence' => $candidate['confidence'] ?? 0,
+            'address' => $address,
+            'rating' => $rating,
+            'location' => $location,
+        ];
+    }
+    curl_multi_close($mh);
+    ksort($results);
+    return array_values($results);
+}
+
+function callDeepSeek(string $prompt, string $system): array {
     $payload = json_encode([
-        'model'            => 'deepseek-v4-flash',
-        'messages'         => [
-            ['role' => 'system', 'content' => '你是专业旅游顾问。严格按用户偏好筛选景点，只返回JSON数组，不输出任何解释。'],
-            ['role' => 'user',   'content' => $prompt],
+        'model' => 'deepseek-v4-flash',
+        'messages' => [
+            ['role' => 'system', 'content' => $system],
+            ['role' => 'user', 'content' => $prompt],
         ],
-        'thinking'         => ['type' => 'enabled'],
+        'thinking' => ['type' => 'enabled'],
         'reasoning_effort' => 'high',
-        'stream'           => false,
+        'stream' => false,
     ], JSON_UNESCAPED_UNICODE);
 
     $ch = curl_init('https://api.deepseek.com/chat/completions');
     curl_setopt_array($ch, [
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => $payload,
-        CURLOPT_HTTPHEADER     => [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
             'Authorization: Bearer ' . DEEPSEEK_KEY,
         ],
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 60,
+        CURLOPT_TIMEOUT => 60,
         CURLOPT_SSL_VERIFYPEER => false,
     ]);
     $resp = curl_exec($ch);
@@ -158,12 +210,7 @@ PROMPT;
     if (!$resp) return [];
     $d = json_decode($resp, true);
     if (isset($d['error']) || empty($d['choices'])) return [];
-    $content = $d['choices'][0]['message']['content'] ?? '';
-    $result  = parseJson($content);
-
-    // 按 confidence 降序排列
-    usort($result, fn($a, $b) => ($b['confidence'] ?? 0) <=> ($a['confidence'] ?? 0));
-    return $result;
+    return parseJson($d['choices'][0]['message']['content'] ?? '');
 }
 
 function parseJson(string $content): array {

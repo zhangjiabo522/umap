@@ -47,44 +47,14 @@ try {
     $userPrefs = $stmt->fetchAll(PDO::FETCH_COLUMN);
 } catch (Exception $e) {}
 
-$searchResult = callWebSearch($city . ' 著名景点 旅游推荐 必去');
-$attractions = callAI($city, $searchResult, $userPrefs);
+$attractions = callAI($city, $userPrefs);
 
 jsonResponse(['success' => true, 'attractions' => $attractions, 'city' => $city]);
 
-function callWebSearch($query) {
-    $ch = curl_init('http://localhost:3000/search');
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => json_encode(['query' => $query, 'engine' => 'bing']),
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 10,
-        CURLOPT_CONNECTTIMEOUT => 5,
-    ]);
-    $response = curl_exec($ch);
-    $err = curl_error($ch);
-    curl_close($ch);
-    if ($err || !$response) return null;
-    $d = json_decode($response, true);
-    if (!$d) return null;
-    $results = $d['results'] ?? $d['organic'] ?? $d['web'] ?? [];
-    $text = '';
-    foreach ($results as $r) {
-        $title = $r['title'] ?? $r['name'] ?? '';
-        $snippet = $r['snippet'] ?? $r['description'] ?? $r['body'] ?? '';
-        if ($title || $snippet) $text .= $title . ': ' . $snippet . "\n";
-    }
-    return $text ?: null;
-}
-
-function callAI($city, $searchResults, $userPrefs) {
+function callAI($city, $userPrefs) {
     $prefsText = empty($userPrefs) ? '无特定偏好' : implode('、', $userPrefs);
-    $context = $searchResults
-        ? "以下是关于{$city}景点的网络搜索结果：\n{$searchResults}\n\n"
-        : '';
     $prompt = <<<PROMPT
-{$context}用户的喜好标签：{$prefsText}
+用户的喜好标签：{$prefsText}
 
 请你推荐{$city}的景点，并根据用户喜好对景点分类，只返回用户可能喜欢的景点。
 

@@ -901,18 +901,34 @@
             if (!window.AMapLoader) { setLocStatus('failed'); setLocLabel('地图未加载'); return; }
             let destroyed = false;
 
-            window.AMapLoader.load({
-                key: 'AMAP_KEY_REMOVED',
-                version: '2.0',
-                plugins: ['AMap.Geolocation', 'AMap.CitySearch'],
-            }).then(AMap => {
-                if (destroyed) return;
-                AMap.getConfig().appname = 'amap-jsapi-skill';
-                AMapRef.current = AMap;
-                const map = new AMap.Map(mapContainerRef.current, { zoom: 13, mapStyle: 'amap://styles/normal' });
-                mapRef.current = map;
-                locateUser(AMap, map);
-            }).catch(() => { setLocStatus('failed'); setLocLabel('地图加载失败'); setRefreshing(false); });
+            async function initMap() {
+                try {
+                    const cfgResp = await fetch('/api/amap_jsapi_config.php');
+                    const cfgData = await cfgResp.json();
+                    const cfg = cfgData.config || {};
+                    if (!cfg.key) throw new Error('missing amap key');
+
+                    window._AMapSecurityConfig = cfg.serviceHost
+                        ? { serviceHost: cfg.serviceHost }
+                        : (cfg.securityJsCode ? { securityJsCode: cfg.securityJsCode } : undefined);
+
+                    const AMap = await window.AMapLoader.load({
+                        key: cfg.key,
+                        version: '2.0',
+                        plugins: ['AMap.Geolocation', 'AMap.CitySearch'],
+                    });
+                    if (destroyed) return;
+                    AMap.getConfig().appname = 'amap-jsapi-skill';
+                    AMapRef.current = AMap;
+                    const map = new AMap.Map(mapContainerRef.current, { zoom: 13, mapStyle: 'amap://styles/normal' });
+                    mapRef.current = map;
+                    locateUser(AMap, map);
+                } catch {
+                    if (!destroyed) { setLocStatus('failed'); setLocLabel('地图加载失败'); setRefreshing(false); }
+                }
+            }
+
+            initMap();
 
             return () => {
                 destroyed = true;
@@ -1283,8 +1299,8 @@
 
     // ==================== City Search Page ====================
     const SEARCH_STEPS = [
-        { id: 1, label: '高德地图搜索候选景点' },
-        { id: 2, label: 'DeepSeek AI 偏好筛选' },
+        { id: 1, label: 'DeepSeek V4 Flash 搜索景点' },
+        { id: 2, label: '高德地图补充详情' },
     ];
 
     function CitySearchPage({ onBack, initialCity }) {
