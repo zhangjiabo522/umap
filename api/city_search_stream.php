@@ -35,6 +35,7 @@ $page = max(1, intval($data['page'] ?? 1));
 if (!$city) { sendEvt('error', ['message' => '请输入城市名称']); exit; }
 
 $userPrefs = [];
+$userFavorites = [];
 $userFeedback = ['likes' => [], 'dislikes' => []];
 try {
     $db = getDB();
@@ -42,6 +43,12 @@ try {
     $stmt->execute([$_SESSION['user_id']]);
     $userPrefs = $stmt->fetchAll(PDO::FETCH_COLUMN);
     ensureFeedbackTable($db);
+    ensureFavoritesTable($db);
+    $stmt = $db->prepare("SELECT name, tags FROM user_favorites WHERE user_id = ? ORDER BY created_at DESC LIMIT 80");
+    $stmt->execute([$_SESSION['user_id']]);
+    foreach ($stmt->fetchAll() as $row) {
+        $userFavorites[] = ['name' => $row['name'], 'tags' => $row['tags'] ? (json_decode($row['tags'], true) ?: []) : []];
+    }
     $stmt = $db->prepare("SELECT name, tags, feedback_type FROM user_attraction_feedback WHERE user_id = ? ORDER BY created_at DESC LIMIT 80");
     $stmt->execute([$_SESSION['user_id']]);
     foreach ($stmt->fetchAll() as $row) {
@@ -54,7 +61,8 @@ try {
 
 // ── Step 1: DeepSeek 搜索候选景点 ─────────────────────────────────────────────
 sendEvt('status', ['step' => 1, 'message' => 'AI 正在分析喜好并搜索景点...']);
-$candidates = deepseekSearchAttractions($city, $userPrefs, $userFeedback, $page);
+$candidates = deepseekSearchAttractions($city, $userPrefs, $userFavorites, $userFeedback, $page);
+$candidates = filterDislikedAttractions($candidates, $userFeedback['dislikes'] ?? []);
 
 if (empty($candidates)) {
     sendEvt('error', ['message' => 'AI 景点分析失败，请重试']);
@@ -83,6 +91,27 @@ function sendEvt(string $type, $data): void {
     echo "data: " . json_encode($data, JSON_UNESCAPED_UNICODE) . "\n\n";
     if (ob_get_level()) ob_flush();
     flush();
+}
+
+function ensureFavoritesTable(PDO $db): void {
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS `user_favorites` (
+            `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `user_id` INT UNSIGNED NOT NULL,
+            `name` VARCHAR(120) NOT NULL,
+            `city` VARCHAR(80) NOT NULL DEFAULT '',
+            `description` VARCHAR(255) NOT NULL DEFAULT '',
+            `address` VARCHAR(255) NOT NULL DEFAULT '',
+            `tags` JSON DEFAULT NULL,
+            `rating` VARCHAR(20) NOT NULL DEFAULT '',
+            `location` VARCHAR(60) NOT NULL DEFAULT '',
+            `confidence` DECIMAL(4,3) DEFAULT NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY `uk_user_name` (`user_id`, `name`),
+            KEY `idx_user_created` (`user_id`, `created_at`),
+            CONSTRAINT `fk_uf_user_stream` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    ");
 }
 
 function ensureFeedbackTable(PDO $db): void {
@@ -114,30 +143,51 @@ function buildFeedbackText(array $items): string {
     return implode('；', $lines);
 }
 
-function deepseekSearchAttractions(string $city, array $userPrefs, array $userFeedback, int $page): array {
+function filterDislikedAttractions(array $candidates, array $dislikes): array {
+    if (empty($dislikes)) return $candidates;
+    $blocked = [];
+    foreach ($dislikes as $item) {
+        $name = normalizeAttractionName($item['name'] ?? '');
+        if ($name) $blocked[$name] = true;
+    }
+    return array_values(array_filter($candidates, function ($item) use ($blocked) {
+        $name = normalizeAttractionName($item['name'] ?? '');
+        return $name && empty($blocked[$name]);
+    }));
+}
+
+function normalizeAttractionName(string $name): string {
+    return preg_replace('/\s+/u', '', mb_strtolower(trim($name), 'UTF-8'));
+}
+
+function deepseekSearchAttractions(string $city, array $userPrefs, array $userFavorites, array $userFeedback, int $page): array {
     $prefsText = empty($userPrefs) ? '无特定偏好（推荐该城市综合热度高、适合大多数游客的景点）' : implode('、', $userPrefs);
+    $favoriteText = buildFeedbackText($userFavorites);
     $likeText = buildFeedbackText($userFeedback['likes'] ?? []);
     $dislikeText = buildFeedbackText($userFeedback['dislikes'] ?? []);
     $offset = ($page - 1) * 12 + 1;
     $end = $offset + 11;
 
     $prompt = <<<PROMPT
-用户的喜好标签：{$prefsText}
-用户曾点赞的景点画像：{$likeText}
-用户曾踩过/不喜欢的景点画像：{$dislikeText}
+以下是后端已经展开好的用户画像，不是变量名：
+- 用户喜好标签：{$prefsText}
+- 用户现有收藏景点：{$favoriteText}
+- 用户点过赞的景点：{$likeText}
+- 用户点过踩/不喜欢的景点：{$dislikeText}
 
 请你搜索并推荐{$city}的景点（第{$offset}到第{$end}个），并根据用户喜好对景点分类，只返回用户可能喜欢的景点。
 
 筛选规则：
 1. 谨慎筛选，筛掉用户可能不喜欢的景点
 2. 用户不想看的景点不要出现在返回列表
-3. 被用户踩过的景点及相似类型、相似标签、相似体验不要推荐
-4. 用户点赞过的景点可作为正向画像参考，但不要重复推荐同名景点
-5. 按 confidence 从高到低排序
-6. confidence 表示用户可能喜欢该景点的置信度，范围 0.01 到 1.00
-7. 不同页尽量返回不同景点
-8. 每次最多返回12个景点
-9. 只返回 JSON 数组，不要任何其他文字或代码块标记
+3. “用户点过踩/不喜欢的景点”中出现过的同名景点绝对不要返回
+4. 被用户踩过的景点及相似类型、相似标签、相似体验不要推荐
+5. “用户现有收藏景点”和“用户点过赞的景点”作为正向画像参考，但不要重复推荐同名景点
+6. 按 confidence 从高到低排序
+7. confidence 表示用户可能喜欢该景点的置信度，范围 0.01 到 1.00
+8. 不同页尽量返回不同景点
+9. 每次最多返回12个景点
+10. 只返回 JSON 数组，不要任何其他文字或代码块标记
 
 返回格式：
 [{"name":"景点名","description":"50字内简介，突出与用户偏好的匹配点","tags":["标签1","标签2"],"confidence":0.95}]
