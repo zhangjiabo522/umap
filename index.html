@@ -269,6 +269,7 @@
         .attraction-tags { display: flex; flex-wrap: wrap; gap: 6px; }
         .attraction-tag { padding: 3px 10px; background: #EEF4FF; color: var(--primary); border-radius: 999px; font-size: 11px; font-weight: 500; }
         .attraction-rating { font-size: 12px; color: #F59E0B; margin-left: 8px; font-weight: 500; }
+        .attraction-confidence { font-size: 11px; color: #16A34A; background: #DCFCE7; border-radius: 999px; padding: 2px 8px; margin-left: 8px; font-weight: 600; }
         .attraction-addr { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; }
         /* Search Progress */
         .search-progress-box { background: var(--surface); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(15,20,55,0.06); }
@@ -1282,8 +1283,8 @@
 
     // ==================== City Search Page ====================
     const SEARCH_STEPS = [
-        { id: 1, label: 'DeepSeek AI 推荐景点' },
-        { id: 2, label: '高德地图获取详情' },
+        { id: 1, label: '高德地图搜索候选景点' },
+        { id: 2, label: 'DeepSeek AI 偏好筛选' },
     ];
 
     function CitySearchPage({ onBack, initialCity }) {
@@ -1485,6 +1486,7 @@
                                         <div style={{ flex: 1, minWidth: 0 }}>
                                             <span className="attraction-name">{a.name}</span>
                                             {a.rating && <span className="attraction-rating">⭐ {a.rating}</span>}
+                                            {a.confidence !== undefined && <span className="attraction-confidence">匹配度 {Math.round(Number(a.confidence) * 100)}%</span>}
                                         </div>
                                         <div className="attraction-actions">
                                             <button

@@ -10,8 +10,7 @@ if (file_exists($_envFile)) {
         $_ENV[$_k] = $_v;
     }
 }
-define('MIMO_KEY',   $_ENV['MIMO_API_KEY'] ?? '');
-define('CLAUDE_KEY', $_ENV['ANTHROPIC_API_KEY'] ?? '');
+define('DEEPSEEK_KEY', $_ENV['DEEPSEEK_API_KEY'] ?? '');
 
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -84,23 +83,41 @@ function callAI($city, $searchResults, $userPrefs) {
     $context = $searchResults
         ? "以下是关于{$city}景点的网络搜索结果：\n{$searchResults}\n\n"
         : '';
-    $prompt = "{$context}请列出{$city}的著名旅游景点，根据用户偏好标签排序：{$prefsText}。\n\n"
-        . "返回JSON数组，8-12个景点，每项格式：{\"name\":\"景点名\",\"description\":\"简介50字内\",\"address\":\"详细地址\",\"tags\":[\"标签\"]}。只返回JSON数组。";
+    $prompt = <<<PROMPT
+{$context}用户的喜好标签：{$prefsText}
 
-    $ch = curl_init('https://token-plan-cn.xiaomimimo.com/v1/chat/completions');
+请你推荐{$city}的景点，并根据用户喜好对景点分类，只返回用户可能喜欢的景点。
+
+筛选规则：
+1. 谨慎筛选，筛掉用户可能不喜欢的景点
+2. 用户不想看的景点不要出现在返回列表
+3. 按 confidence 从高到低排序
+4. confidence 表示用户可能喜欢该景点的置信度，范围 0.01 到 1.00
+5. 只返回 JSON 数组，不要任何其他文字或代码块标记
+
+返回格式：
+[{"name":"景点名","description":"50字内简介，突出与用户偏好的匹配点","address":"详细地址","tags":["标签1","标签2"],"confidence":0.95}]
+PROMPT;
+
+    $ch = curl_init('https://api.deepseek.com/chat/completions');
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode([
-            'model' => 'mimo-v2-flash',
-            'messages' => [['role' => 'user', 'content' => $prompt]],
-            'temperature' => 0.3,
-        ]),
+            'model' => 'deepseek-v4-flash',
+            'messages' => [
+                ['role' => 'system', 'content' => '你是专业旅游顾问。严格按用户偏好筛选景点，只返回JSON数组，不输出任何解释。'],
+                ['role' => 'user', 'content' => $prompt],
+            ],
+            'thinking' => ['type' => 'enabled'],
+            'reasoning_effort' => 'high',
+            'stream' => false,
+        ], JSON_UNESCAPED_UNICODE),
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'Authorization: Bearer ' . MIMO_KEY,
+            'Authorization: Bearer ' . DEEPSEEK_KEY,
         ],
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 30,
+        CURLOPT_TIMEOUT => 60,
         CURLOPT_SSL_VERIFYPEER => false,
     ]);
     $response = curl_exec($ch);
@@ -110,7 +127,10 @@ function callAI($city, $searchResults, $userPrefs) {
     $content = $d['choices'][0]['message']['content'] ?? '';
     if (preg_match('/\[.*\]/s', $content, $m)) {
         $arr = json_decode($m[0], true);
-        if (is_array($arr)) return $arr;
+        if (is_array($arr)) {
+            usort($arr, fn($a, $b) => ($b['confidence'] ?? 0) <=> ($a['confidence'] ?? 0));
+            return $arr;
+        }
     }
     return [];
 }
