@@ -138,10 +138,6 @@
         .home-card-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
         .home-card h4 { font-family: var(--font-heading); font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 3px; }
         .home-card p { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
-        .home-stats { display: flex; gap: 10px; margin-bottom: 20px; }
-        .home-stat { flex: 1; background: var(--surface); border-radius: 14px; padding: 14px 12px; text-align: center; box-shadow: 0 2px 8px rgba(15,20,55,0.05); }
-        .home-stat-num { font-family: var(--font-heading); font-size: 22px; font-weight: 800; color: var(--primary); letter-spacing: -0.02em; }
-        .home-stat-label { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
 
         /* Home Map Layout */
         .home-map-page { position: relative; height: calc(100dvh - 116px - env(safe-area-inset-bottom)); overflow: hidden; }
@@ -167,17 +163,7 @@
         .home-sheet-handle::before { content: ''; display: block; width: 36px; height: 4px; border-radius: 2px; background: rgba(15,20,55,0.12); margin: 0 auto 14px; }
         .home-sheet-content { flex: 1; overflow-y: auto; padding: 0 16px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
         .home-map-peek { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 20px 0 36px; color: var(--primary); font-size: 14px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; opacity: 0.7; }
-        .home-favorites-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
-        .home-favorite-item { background: var(--surface); border-radius: 16px; padding: 14px; box-shadow: 0 2px 12px rgba(15,20,55,0.06); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-        .home-favorite-main { margin-bottom: 10px; }
-        .home-favorite-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
-        .home-favorite-sub { font-size: 11px; color: var(--text-muted); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .home-favorite-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .home-favorite-actions button { border: none; border-radius: 10px; padding: 8px 6px; background: #F5F7FA; color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font-body); -webkit-tap-highlight-color: transparent; }
-        .home-favorite-actions button:hover { background: #EEF4FF; color: var(--primary); }
-        .home-favorite-actions button.danger { background: #FFF1F0; color: #DE345D; }
-        .home-favorites-empty { background: var(--surface); border-radius: 16px; padding: 18px; margin-bottom: 10px; text-align: center; color: var(--text-muted); font-size: 13px; box-shadow: 0 2px 12px rgba(15,20,55,0.06); }
-        .home-more-link { text-align: center; color: var(--primary); font-size: 13px; font-weight: 600; padding: 10px 0; cursor: pointer; }
+
 
         /* AI Tab */
         .ai-content { max-width: 480px; margin: 0 auto; padding: 20px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100dvh - 130px); }
@@ -380,7 +366,7 @@
     const AntInput = antd.Input;
     const {
         UserOutlined, LockOutlined, MailOutlined, EnvironmentOutlined, LogoutOutlined,
-        CheckCircleFilled, SafetyOutlined, HeartFilled, TagsOutlined, PlusOutlined,
+        CheckCircleFilled, SafetyOutlined, HeartFilled, PlusOutlined,
         CloseOutlined, ArrowLeftOutlined, SaveOutlined, InfoCircleFilled, WarningFilled,
         LoadingOutlined, StarFilled, DeleteOutlined, HomeOutlined, RobotOutlined,
         RightOutlined, SettingOutlined, BellOutlined, QuestionCircleOutlined, AimOutlined,
@@ -758,7 +744,7 @@
         const mapRef = useRef(null);
         const AMapRef = useRef(null);
         const markerRef = useRef(null);
-        const favoriteMarkerRef = useRef(null);
+
         const sheetRef = useRef(null);
         const contentRef = useRef(null);
         const dragRef = useRef({ isDragging: false, startY: 0, startTranslate: 0, lastY: 0, lastTime: 0, velocity: 0 });
@@ -766,28 +752,11 @@
         const [locLabel, setLocLabel] = useState('定位中...');
         const [refreshing, setRefreshing] = useState(false);
         const [sheetExpanded, setSheetExpanded] = useState(false);
-        const [homeFavorites, setHomeFavorites] = useState([]);
-        const [favoritesLoading, setFavoritesLoading] = useState(true);
+
         const sheetExpandedRef = useRef(false);
 
         const COLLAPSED_Y = 0;
         const EXPANDED_Y = -152;
-        const firstFavorite = homeFavorites[0];
-
-        async function loadHomeFavorites() {
-            setFavoritesLoading(true);
-            try {
-                const res = await fetch('/api/favorites.php');
-                const data = await res.json();
-                if (data.success) setHomeFavorites(data.favorites || []);
-                else message.error(data.message || '获取收藏失败');
-            } catch {
-                message.error('网络错误，请重试');
-            }
-            setFavoritesLoading(false);
-        }
-
-        useEffect(() => { loadHomeFavorites(); }, []);
 
         function snapSheet(expand) {
             const sheet = sheetRef.current;
@@ -1009,99 +978,6 @@
             locateUser(AMapRef.current, mapRef.current);
         }
 
-        function parseLocation(item) {
-            if (!item?.location) return null;
-            const [lng, lat] = item.location.split(',').map(Number);
-            if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
-            return { lng, lat };
-        }
-
-        async function removeFavorite(e, item) {
-            e.stopPropagation();
-            try {
-                const res = await fetch('/api/favorites.php', {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: item.name }),
-                });
-                const data = await res.json();
-                if (!data.success) { message.error(data.message || '删除失败'); return; }
-                setHomeFavorites(prev => prev.filter(f => f.name !== item.name));
-                message.success('已删除收藏');
-            } catch {
-                message.error('网络错误，请重试');
-            }
-        }
-
-        function openAmapUrl(appUrl, webUrl) {
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.src = appUrl;
-            document.body.appendChild(iframe);
-            setTimeout(() => {
-                if (iframe.parentNode) document.body.removeChild(iframe);
-                window.open(webUrl, '_blank');
-            }, 1200);
-        }
-
-        function routePlan(e, item) {
-            e.stopPropagation();
-            const loc = parseLocation(item);
-            if (loc) {
-                openAmapUrl(
-                    `amap://navi?sourceApplication=umap&poiname=${encodeURIComponent(item.name)}&lat=${loc.lat}&lon=${loc.lng}&dev=0&style=2`,
-                    `https://uri.amap.com/navigation?to=${loc.lng},${loc.lat},${encodeURIComponent(item.name)}&mode=car&policy=1&src=umap&coordinate=gaode&callnative=1`
-                );
-            } else {
-                openAmapUrl(
-                    `amap://poi?sourceApplication=umap&keywords=${encodeURIComponent(item.name)}&city=${encodeURIComponent(item.city || '')}`,
-                    `https://uri.amap.com/search?query=${encodeURIComponent(item.name)}&city=${encodeURIComponent(item.city || '')}&callnative=1`
-                );
-            }
-        }
-
-        function discoverNearby(e, item) {
-            e.stopPropagation();
-            const loc = parseLocation(item);
-            if (loc) {
-                window.open(`https://uri.amap.com/search?query=${encodeURIComponent('附近景点 美食')}&center=${loc.lng},${loc.lat}&callnative=1`, '_blank');
-            } else {
-                window.open(`https://uri.amap.com/search?query=${encodeURIComponent((item.city || '') + item.name + ' 附近景点 美食')}&callnative=1`, '_blank');
-            }
-        }
-
-        function showFavoriteOnMap(e, item) {
-            e.stopPropagation();
-            const loc = parseLocation(item);
-            if (!loc || !AMapRef.current || !mapRef.current) {
-                window.open(`https://uri.amap.com/search?query=${encodeURIComponent(item.name)}&city=${encodeURIComponent(item.city || '')}&callnative=1`, '_blank');
-                return;
-            }
-            const AMap = AMapRef.current;
-            const map = mapRef.current;
-            if (favoriteMarkerRef.current) map.remove(favoriteMarkerRef.current);
-            const marker = new AMap.Marker({
-                position: [loc.lng, loc.lat],
-                title: item.name,
-                offset: new AMap.Pixel(-13, -30),
-            });
-            map.add(marker);
-            favoriteMarkerRef.current = marker;
-            map.setZoomAndCenter(16, [loc.lng, loc.lat]);
-            snapSheet(false);
-            setLocLabel('GPS');
-            setLocStatus('gps');
-        }
-
-        function handleQuickRoute() {
-            if (!firstFavorite) { message.info('先收藏一个地点再规划路线'); return; }
-            routePlan({ stopPropagation() {} }, firstFavorite);
-        }
-
-        function handleQuickNearby() {
-            if (!firstFavorite) { message.info('先收藏一个地点再发现附近'); return; }
-            discoverNearby({ stopPropagation() {} }, firstFavorite);
-        }
 
         const statusIcon = locStatus === 'loading' ? <LoadingOutlined /> : <EnvironmentOutlined />;
 
@@ -1131,20 +1007,6 @@
                             <p>探索世界，发现属于你的地图故事</p>
                         </div>
                     </div>
-                    <div className="home-stats">
-                        <div className="home-stat">
-                            <div className="home-stat-num">{homeFavorites.length}</div>
-                            <div className="home-stat-label">收藏地点</div>
-                        </div>
-                        <div className="home-stat">
-                            <div className="home-stat-num">{homeFavorites.filter(a => a.location).length}</div>
-                            <div className="home-stat-label">可规划路线</div>
-                        </div>
-                        <div className="home-stat">
-                            <div className="home-stat-num">{homeFavorites.length}</div>
-                            <div className="home-stat-label">附近发现</div>
-                        </div>
-                    </div>
                     <div className="home-section-title">快捷功能</div>
                     <div className="home-cards">
                         <div className="home-card" onClick={onGoPrefs}>
@@ -1161,45 +1023,7 @@
                             <h4>收藏地点</h4>
                             <p>查看和管理你保存的地点</p>
                         </div>
-                        <div className="home-card" onClick={handleQuickRoute}>
-                            <div className="home-card-icon" style={{ background: '#FFF7ED' }}>
-                                <TagsOutlined style={{ color: '#F97316' }} />
-                            </div>
-                            <h4>路线规划</h4>
-                            <p>{firstFavorite ? `去 ${firstFavorite.name}` : '收藏地点后快速规划'}</p>
-                        </div>
-                        <div className="home-card" onClick={handleQuickNearby}>
-                            <div className="home-card-icon" style={{ background: '#FDF4FF' }}>
-                                <EnvironmentOutlined style={{ color: '#A855F7' }} />
-                            </div>
-                            <h4>附近发现</h4>
-                            <p>{firstFavorite ? `发现 ${firstFavorite.name} 周边` : '收藏地点后探索周边'}</p>
-                        </div>
                     </div>
-                    <div className="home-section-title">收藏地点</div>
-                    {favoritesLoading ? (
-                        <div className="home-favorites-empty"><LoadingOutlined /> 正在加载收藏</div>
-                    ) : homeFavorites.length === 0 ? (
-                        <div className="home-favorites-empty">暂无收藏地点，先去搜索城市景点并收藏吧</div>
-                    ) : (
-                        <div className="home-favorites-list">
-                            {homeFavorites.slice(0, 5).map(item => (
-                                <div key={item.id || item.name} className="home-favorite-item" onClick={e => showFavoriteOnMap(e, item)}>
-                                    <div className="home-favorite-main">
-                                        <div className="home-favorite-title">{item.name}</div>
-                                        <div className="home-favorite-sub">{item.address || item.city || '点击查看地图'}</div>
-                                    </div>
-                                    <div className="home-favorite-actions">
-                                        <button onClick={e => showFavoriteOnMap(e, item)}>查看地图</button>
-                                        <button onClick={e => routePlan(e, item)}>路线计划</button>
-                                        <button onClick={e => discoverNearby(e, item)}>附近发现</button>
-                                        <button className="danger" onClick={e => removeFavorite(e, item)}>删除</button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                    {homeFavorites.length > 5 && <div className="home-more-link" onClick={() => onNavigate('favorites')}>查看全部 {homeFavorites.length} 个收藏</div>}
                     <div className="home-map-peek" onClick={() => snapSheet(false)}>
                         <EnvironmentOutlined />
                         <span>查看地图</span>
