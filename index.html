@@ -1268,18 +1268,21 @@
     }
 
     // ==================== City Search Page ====================
-    function CitySearchPage({ onBack }) {
-        const [city, setCity] = useState('');
+    function CitySearchPage({ onBack, initialCity }) {
+        const [city, setCity] = useState(initialCity || '');
         const [loading, setLoading] = useState(false);
         const [attractions, setAttractions] = useState([]);
         const [searched, setSearched] = useState(false);
         const [favorites, setFavorites] = useState(new Set());
         const inputRef = useRef(null);
 
-        useEffect(() => { if (inputRef.current) inputRef.current.focus(); }, []);
+        useEffect(() => {
+            if (inputRef.current) inputRef.current.focus();
+            if (initialCity && initialCity.trim()) search(initialCity.trim());
+        }, []);
 
-        async function search() {
-            const c = city.trim();
+        async function search(overrideCity) {
+            const c = (overrideCity || city).trim();
             if (!c) return;
             setLoading(true);
             setSearched(true);
@@ -1391,17 +1394,19 @@
         const [showPrefs, setShowPrefs] = useState(false);
         const [subPage, setSubPage] = useState(null);
         const [headerSearch, setHeaderSearch] = useState('');
+        const [citySearchQuery, setCitySearchQuery] = useState('');
 
         if (showPrefs) return <PreferencePage user={user} onBack={() => setShowPrefs(false)} />;
         if (subPage === 'favorites') return <FavoritesPage onBack={() => setSubPage(null)} />;
         if (subPage === 'account') return <AccountSettingsPage user={user} onBack={() => setSubPage(null)} />;
         if (subPage === 'help') return <HelpPage onBack={() => setSubPage(null)} />;
-        if (subPage === 'citySearch') return <CitySearchPage onBack={() => setSubPage(null)} />;
+        if (subPage === 'citySearch') return <CitySearchPage initialCity={citySearchQuery} onBack={() => { setSubPage(null); setCitySearchQuery(''); }} />;
 
         function handleHeaderSearchKey(e) {
             if (e.key === 'Enter' && headerSearch.trim()) {
-                setSubPage('citySearch');
+                setCitySearchQuery(headerSearch.trim());
                 setHeaderSearch('');
+                setSubPage('citySearch');
             }
         }
 
