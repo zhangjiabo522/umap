@@ -2,6 +2,17 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
+$_envFile = __DIR__ . '/../.env';
+if (file_exists($_envFile)) {
+    foreach (file($_envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $_line) {
+        if (strpos(trim($_line), '#') === 0) continue;
+        [$_k, $_v] = array_map('trim', explode('=', $_line, 2));
+        $_ENV[$_k] = $_v;
+    }
+}
+define('DEEPSEEK_KEY', $_ENV['DEEPSEEK_API_KEY'] ?? '');
+define('AMAP_KEY',     $_ENV['AMAP_KEY'] ?? '');
+
 set_time_limit(120);
 if (ob_get_level()) ob_end_clean();
 
@@ -88,7 +99,7 @@ function deepseekSearch(string $city, array $userPrefs, int $page): array {
         CURLOPT_POSTFIELDS     => $payload,
         CURLOPT_HTTPHEADER     => [
             'Content-Type: application/json',
-            'Authorization: Bearer DEEPSEEK_API_KEY_REMOVED',
+            'Authorization: Bearer ' . DEEPSEEK_KEY,
         ],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 60,
@@ -110,7 +121,7 @@ function parallelAmapLookup(string $city, array $aiAttractions, int $total): arr
 
     foreach ($aiAttractions as $i => $ai) {
         $url = 'https://restapi.amap.com/v3/place/text?' . http_build_query([
-            'key'        => 'AMAP_KEY_REMOVED',
+            'key'        => AMAP_KEY,
             'keywords'   => $ai['name'],
             'city'       => $city,
             'offset'     => 1,

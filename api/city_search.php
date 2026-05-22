@@ -2,6 +2,17 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
+$_envFile = __DIR__ . '/../.env';
+if (file_exists($_envFile)) {
+    foreach (file($_envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $_line) {
+        if (strpos(trim($_line), '#') === 0) continue;
+        [$_k, $_v] = array_map('trim', explode('=', $_line, 2));
+        $_ENV[$_k] = $_v;
+    }
+}
+define('MIMO_KEY',   $_ENV['MIMO_API_KEY'] ?? '');
+define('CLAUDE_KEY', $_ENV['ANTHROPIC_API_KEY'] ?? '');
+
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
@@ -86,7 +97,7 @@ function callAI($city, $searchResults, $userPrefs) {
         ]),
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'Authorization: Bearer MIMO_API_KEY_REMOVED',
+            'Authorization: Bearer ' . MIMO_KEY,
         ],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 30,
