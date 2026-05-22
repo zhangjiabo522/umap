@@ -167,8 +167,8 @@
 
 
         /* AI Chat */
-        .ai-chat { display: flex; flex-direction: column; height: calc(100dvh - 116px - env(safe-area-inset-bottom)); max-width: 480px; margin: 0 auto; background: #F0F4F8; }
-        .ai-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid rgba(228,231,237,0.7); flex-shrink: 0; }
+        .ai-chat { display: flex; flex-direction: column; height: calc(100dvh - 116px - env(safe-area-inset-bottom)); max-width: 480px; margin: 0 auto; background: #F0F4F8; overflow: hidden; }
+        .ai-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; background: var(--surface); border-bottom: 1px solid rgba(228,231,237,0.7); flex-shrink: 0; }
         .ai-header-title { font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--text-primary); flex: 1; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; }
         .ai-header-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: #f5f7fa; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; transition: all 150ms; -webkit-tap-highlight-color: transparent; flex-shrink: 0; }
         .ai-header-btn:hover { background: #EEF4FF; color: var(--primary); }
@@ -180,15 +180,15 @@
         .ai-history-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
         .ai-history-del { width: 32px; height: 32px; border-radius: 50%; border: none; background: transparent; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; transition: all 150ms; }
         .ai-history-del:hover { background: #FFF1F0; color: #DE345D; }
-        .ai-messages { flex: 1; overflow-y: auto; padding: 16px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
-        .ai-welcome { text-align: center; padding: 40px 20px 20px; }
+        .ai-messages { flex: 1; overflow-y: auto; padding: 12px 14px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; scroll-behavior: smooth; }
+        .ai-welcome { text-align: center; padding: 30px 20px 16px; }
         .ai-welcome-icon { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, rgba(21,101,239,0.12), rgba(13,148,136,0.12)); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
         .ai-welcome h3 { font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
         .ai-welcome p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
-        .ai-msg { display: flex; margin-bottom: 16px; }
+        .ai-msg { display: flex; margin-bottom: 12px; }
         .ai-msg-user { justify-content: flex-end; }
         .ai-msg-ai { justify-content: flex-start; }
-        .ai-msg-bubble { max-width: 82%; padding: 12px 14px; border-radius: 18px; font-size: 14px; line-height: 1.65; word-break: break-word; }
+        .ai-msg-bubble { max-width: 88%; padding: 10px 13px; border-radius: 18px; font-size: 14px; line-height: 1.6; word-break: break-word; }
         .ai-msg-user .ai-msg-bubble { background: var(--primary); color: #fff; border-bottom-right-radius: 6px; }
         .ai-msg-ai .ai-msg-bubble { background: var(--surface); color: var(--text-primary); border-bottom-left-radius: 6px; box-shadow: 0 2px 8px rgba(15,20,55,0.06); }
         .ai-msg-content h1, .ai-msg-content h2, .ai-msg-content h3 { font-family: var(--font-heading); margin: 12px 0 6px; font-weight: 700; }
@@ -228,8 +228,8 @@
         .ai-search-snippet { font-size: 12px; color: var(--text-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .ai-search-url { font-size: 11px; color: var(--text-muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .ai-location-card { border-radius: 12px; overflow: hidden; background: #fff; border: 1px solid #e8ecf1; margin: 8px 0; }
-        .ai-loc-map { width: 100%; height: 180px; background: #f0f4f8; }
-        .ai-loc-map-placeholder { width: 100%; height: 160px; background: linear-gradient(135deg, #e8ecf1 0%, #d5dbe3 100%); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px; }
+        .ai-loc-map { width: 100%; height: 150px; background: #f0f4f8; }
+        .ai-loc-map-placeholder { width: 100%; height: 120px; background: linear-gradient(135deg, #e8ecf1 0%, #d5dbe3 100%); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px; }
         .ai-loc-info { padding: 10px 12px; }
         .ai-loc-name { font-size: 15px; font-weight: 700; color: var(--text-primary); }
         .ai-loc-addr { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
@@ -242,7 +242,7 @@
         .ai-loc-btn-fav.saved { background: rgba(13,148,136,0.1); color: var(--accent); }
         @keyframes ai-bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
         .ai-status { text-align: center; font-size: 12px; color: var(--text-muted); padding: 8px 0; }
-        .ai-input-area { flex-shrink: 0; background: var(--surface); border-top: 1px solid rgba(228,231,237,0.7); padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+        .ai-input-area { flex-shrink: 0; background: var(--surface); border-top: 1px solid rgba(228,231,237,0.7); padding: 8px 12px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
         .ai-attach-preview { display: flex; gap: 8px; padding: 0 4px 8px; flex-wrap: wrap; }
         .ai-attach-chip { display: flex; align-items: center; gap: 4px; background: #f0f4f8; border-radius: 10px; padding: 4px 10px; font-size: 12px; color: var(--text-secondary); }
         .ai-attach-chip-remove { cursor: pointer; color: var(--text-muted); font-size: 14px; line-height: 1; }
@@ -259,6 +259,20 @@
         .ai-action-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: #f5f7fa; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; transition: all 150ms; -webkit-tap-highlight-color: transparent; position: relative; }
         .ai-action-btn:hover { background: #EEF4FF; color: var(--primary); }
         .ai-action-btn.active { background: rgba(21,101,239,0.15); color: var(--primary); }
+        @media (max-width: 380px) {
+            .ai-msg-bubble { max-width: 92%; padding: 9px 11px; font-size: 13px; }
+            .ai-input-wrap { padding: 6px 12px; }
+            .ai-input-wrap textarea { font-size: 13px; }
+            .ai-send-btn { width: 34px; height: 34px; font-size: 14px; }
+            .ai-action-btn { width: 32px; height: 32px; font-size: 14px; }
+            .ai-header { padding: 6px 10px; }
+            .ai-header-title { font-size: 14px; }
+            .ai-header-btn { width: 32px; height: 32px; font-size: 14px; }
+            .ai-loc-map { height: 120px; }
+        }
+        @supports (height: 100dvh) {
+            .ai-chat { height: calc(100dvh - 116px - env(safe-area-inset-bottom)); }
+        }
 
 
         .ai-fav-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: flex-end; justify-content: center; }
@@ -963,25 +977,11 @@
 
         function locateUser(AMap, map) {
             setLocStatus('loading');
-            setLocLabel('GPS');
+            setLocLabel('定位中...');
             setRefreshing(true);
             if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
 
-            const geo = new AMap.Geolocation({
-                enableHighAccuracy: true,
-                timeout: 20000,
-                maximumAge: 0,
-                convert: true,
-                GeoLocationFirst: true,
-                zoomToAccuracy: true,
-                showCircle: true,
-            });
-
-            let best = null;
-            let attempts = 0;
-            const maxAttempts = 3;
-
-            function applyPosition(result) {
+            function applyPosition(result, type) {
                 const { lng, lat } = result.position;
                 map.setCenter([lng, lat]);
                 map.setZoom(17);
@@ -993,8 +993,8 @@
                 });
                 map.add(marker);
                 markerRef.current = marker;
-                setLocStatus('gps');
-                setLocLabel('GPS');
+                setLocStatus(type === 'gps' ? 'gps' : 'ip');
+                setLocLabel(type === 'gps' ? 'GPS' : '网络定位');
                 setRefreshing(false);
             }
 
@@ -1012,24 +1012,48 @@
                 });
             }
 
-            function tryLocate() {
-                attempts++;
-                geo.getCurrentPosition((status, result) => {
-                    if (status === 'complete') {
-                        if (!best || ((result.accuracy || Infinity) < (best.accuracy || Infinity))) best = result;
-                        if ((result.accuracy && result.accuracy <= 30) || attempts >= maxAttempts) applyPosition(best);
-                        else setTimeout(tryLocate, 1200);
-                    } else if (best) {
-                        applyPosition(best);
-                    } else if (attempts < maxAttempts) {
-                        setTimeout(tryLocate, 1200);
-                    } else {
-                        fallbackCity();
-                    }
-                });
-            }
+            // Phase 1: quick fix using network/WiFi (low accuracy, <3s)
+            const geoQuick = new AMap.Geolocation({
+                enableHighAccuracy: false,
+                timeout: 5000,
+                maximumAge: 30000,
+                convert: true,
+                GeoLocationFirst: true,
+            });
 
-            tryLocate();
+            geoQuick.getCurrentPosition((status, result) => {
+                if (status === 'complete') {
+                    applyPosition(result, result.accuracy <= 100 ? 'gps' : 'network');
+                    // Phase 2: background precise GPS upgrade
+                    const geoPrecise = new AMap.Geolocation({
+                        enableHighAccuracy: true,
+                        timeout: 8000,
+                        maximumAge: 0,
+                        convert: true,
+                    });
+                    geoPrecise.getCurrentPosition((s2, r2) => {
+                        if (s2 === 'complete' && r2.accuracy < (result.accuracy || Infinity)) {
+                            applyPosition(r2, 'gps');
+                        }
+                    });
+                } else {
+                    // Phase 1 failed, try precise GPS directly
+                    const geoFallback = new AMap.Geolocation({
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0,
+                        convert: true,
+                        GeoLocationFirst: true,
+                    });
+                    geoFallback.getCurrentPosition((s2, r2) => {
+                        if (s2 === 'complete') {
+                            applyPosition(r2, 'gps');
+                        } else {
+                            fallbackCity();
+                        }
+                    });
+                }
+            });
         }
 
         useEffect(() => {
@@ -1585,6 +1609,7 @@
                         <div className="ai-input-wrap">
                             <textarea ref={textareaRef} rows={1} placeholder="问我旅行问题..." value={inputText}
                                 onChange={e => setInputText(e.target.value)} onKeyDown={handleKeyDown}
+                                onFocus={() => setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 300)}
                                 onInput={e => { e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px'; }} />
                         </div>
                         <button className="ai-send-btn" disabled={!canSend} onClick={sendMessage}><SendOutlined /></button>
