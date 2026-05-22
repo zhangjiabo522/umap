@@ -1282,9 +1282,8 @@
 
     // ==================== City Search Page ====================
     const SEARCH_STEPS = [
-        { id: 1, label: '高德地图景点搜索' },
-        { id: 2, label: '搜索景点评价' },
-        { id: 3, label: 'AI 分析匹配度' },
+        { id: 1, label: 'DeepSeek AI 推荐景点' },
+        { id: 2, label: '高德地图获取详情' },
     ];
 
     function CitySearchPage({ onBack, initialCity }) {
@@ -1294,8 +1293,8 @@
         const [attractions, setAttractions] = useState([]);
         const [searched, setSearched] = useState(false);
         const [favorites, setFavorites] = useState(new Set());
-        const [stepStates, setStepStates] = useState({ 1: 'pending', 2: 'pending', 3: 'pending' });
-        const [stepDetails, setStepDetails] = useState({ 1: '', 2: '', 3: '' });
+        const [stepStates, setStepStates] = useState({ 1: 'pending', 2: 'pending' });
+        const [stepDetails, setStepDetails] = useState({ 1: '', 2: '' });
         const [hasMore, setHasMore] = useState(false);
         const [nextPage, setNextPage] = useState(2);
         const inputRef = useRef(null);
@@ -1324,8 +1323,8 @@
                 setAttractions([]);
                 setHasMore(false);
                 setNextPage(2);
-                setStepStates({ 1: 'pending', 2: 'pending', 3: 'pending' });
-                setStepDetails({ 1: '', 2: '', 3: '' });
+                setStepStates({ 1: 'pending', 2: 'pending' });
+                setStepDetails({ 1: '', 2: '' });
             } else {
                 setLoadingMore(true);
             }
