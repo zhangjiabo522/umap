@@ -45,7 +45,7 @@
         }
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
-        body { font-family: var(--font-body); font-size: 15px; font-weight: 450; line-height: 1.6; color: var(--text-primary); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; font-optical-sizing: auto; background: linear-gradient(160deg, #0F1E3D 0%, #15305A 50%, #0A1628 100%) fixed; }
+        body { font-family: var(--font-body); font-size: 15px; font-weight: 450; line-height: 1.6; color: var(--text-primary); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; font-optical-sizing: auto; background: linear-gradient(160deg, #0F1E3D 0%, #15305A 50%, #0A1628 100%) fixed; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
         input, button, select, textarea { font-family: var(--font-body); }
         .ant-input, .ant-input-affix-wrapper input, .ant-btn, .ant-btn span,
         .ant-select-selector, .ant-form-item-label > label, .ant-form-item-explain,
@@ -94,7 +94,7 @@
         .app-header-brand { display: flex; align-items: center; gap: 9px; }
         .app-header-logo { width: 32px; height: 32px; border-radius: 9px; overflow: hidden; background: #F5F6FA; padding: 3px; }
         .app-header-logo img { width: 100%; height: 100%; object-fit: contain; border-radius: 6px; display: block; }
-        .app-header-title { font-family: var(--font-heading); font-weight: 800; font-size: 18px; color: var(--text-primary); letter-spacing: -0.02em; }
+        .app-header-title { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--text-primary); letter-spacing: -0.03em; }
         .app-header-user { display: flex; align-items: center; gap: 7px; cursor: pointer; padding: 5px 10px; border-radius: 999px; transition: background var(--transition-base); }
         .app-header-user:hover { background: #F5F6FA; }
         .app-header-user:active { background: #ECEEF2; transform: scale(0.97); }
@@ -237,6 +237,10 @@
 </head>
 <body>
 <div id="root"></div>
+<script>
+    document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+    document.addEventListener('selectstart', function(e) { e.preventDefault(); });
+</script>
 <script type="text/babel">
     const { useState, useEffect, useRef, useCallback } = React;
     const {
