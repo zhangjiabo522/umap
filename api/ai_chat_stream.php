@@ -6,7 +6,8 @@ loadEnv(__DIR__ . '/../.env');
 
 define('MIMO_API_KEY', $_ENV['MIMO_API_KEY'] ?? '');
 define('MIMO_BASE_URL', rtrim($_ENV['MIMO_BASE_URL'] ?? 'https://api.xiaomimimo.com/v1', '/'));
-define('MIMO_MODEL', $_ENV['MIMO_MODEL'] ?? 'MiMo-V2.5-Pro');
+define('MIMO_MODEL', $_ENV['MIMO_MODEL'] ?? 'mimo-v2.5-pro');
+define('MIMO_VISION_MODEL', $_ENV['MIMO_VISION_MODEL'] ?? 'mimo-v2.5');
 
 set_time_limit(180);
 if (ob_get_level()) ob_end_clean();
@@ -48,8 +49,11 @@ try {
     $profile = loadUserProfile(getDB(), intval($_SESSION['user_id']));
 
     $text = buildUserText($message, $favorite, $mediaItems);
+    $hasImage = false;
+    foreach ($mediaItems as $m) { if (($m['type'] ?? '') === 'image_url') { $hasImage = true; break; } }
+    $model = $hasImage ? (defined('MIMO_VISION_MODEL') ? MIMO_VISION_MODEL : 'mimo-v2.5') : MIMO_MODEL;
     $payload = [
-        'model' => MIMO_MODEL,
+        'model' => $model,
         'messages' => [
             ['role' => 'system', 'content' => buildSystemPrompt($profile)],
             ['role' => 'user', 'content' => array_merge($mediaItems, [['type' => 'text', 'text' => $text]])],
