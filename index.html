@@ -1311,14 +1311,16 @@
                             <p>问我任何旅行问题，可以上传图片或选择收藏地点一起发送</p>
                         </div>
                     )}
-                    {messages.map((msg, i) => (
+                    {messages.map((msg, i) => {
+                        if (msg.role === 'ai' && !msg.content && !msg.think) return null;
+                        return (
                         <div key={i} className={`ai-msg ai-msg-${msg.role}`}>
                             <div className="ai-msg-bubble">
                                 {msg.role === 'user' && msg.favorite && <div className="ai-msg-fav"><EnvironmentOutlined /> {msg.favorite.name}</div>}
                                 {msg.role === 'user' && msg.attachments?.length > 0 && (
                                     <div className="ai-msg-attach">{msg.attachments.map((a, j) => <span key={j} className="ai-msg-attach-item">🖼 {a.name}</span>)}</div>
                                 )}
-                                {msg.role === 'user' ? <div>{msg.content}</div> : (
+                                {msg.role === 'user' ? (msg.content ? <div>{msg.content}</div> : null) : (
                                     <>
                                         {msg.think && (
                                             <div className={`ai-think${expandedThinks[i] ? ' expanded' : ''}`}>
@@ -1335,11 +1337,12 @@
                                 )}
                             </div>
                         </div>
-                    ))}
-                    {loading && messages.length > 0 && messages[messages.length - 1]?.content === '' && !messages[messages.length - 1]?.think && (
+                        );
+                    })}
+                    {loading && (
                         <div className="ai-msg ai-msg-ai">
                             <div className="ai-msg-bubble">
-                                {statusText ? <div className="ai-status">{statusText}</div> : <div className="ai-status">正在思考...</div>}
+                                <div className="ai-status">{statusText || '正在思考...'}</div>
                             </div>
                         </div>
                     )}
