@@ -10,8 +10,8 @@ function jsonResponse($data, $code = 200) {
 
 function verifyRecaptcha($token) {
     $urls = [
-        'https://recaptcha.google.cn/recaptcha/api/siteverify',
         'https://www.recaptcha.net/recaptcha/api/siteverify',
+        'https://recaptcha.google.cn/recaptcha/api/siteverify',
     ];
     $data = [
         'secret' => RECAPTCHA_SECRET_KEY,

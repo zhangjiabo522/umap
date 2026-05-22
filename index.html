@@ -14,7 +14,20 @@
     <script src="https://cdn.jsdelivr.net/npm/antd@5.12.8/dist/antd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ant-design/icons@5.2.6/dist/index.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.6/babel.min.js"></script>
-    <script src="https://recaptcha.google.cn/recaptcha/api.js?render=explicit" async defer></script>
+    <script>
+    (function() {
+        var hosts = ['www.recaptcha.net', 'recaptcha.google.cn'];
+        var idx = 0;
+        function load() {
+            var s = document.createElement('script');
+            s.src = 'https://' + hosts[idx] + '/recaptcha/api.js?render=explicit';
+            s.async = true; s.defer = true;
+            s.onerror = function() { idx++; if (idx < hosts.length) load(); };
+            document.head.appendChild(s);
+        }
+        load();
+    })();
+    </script>
     <style>
         :root {
             --primary: #1565EF; --primary-dark: #1254C4; --accent: #0D9488;
