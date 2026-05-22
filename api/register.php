@@ -42,7 +42,7 @@ if (empty($recaptchaToken)) {
 }
 
 $recaptchaResult = verifyRecaptcha($recaptchaToken);
-if (empty($recaptchaResult['success']) || ($recaptchaResult['score'] ?? 0) < 0.5) {
+if (empty($recaptchaResult['success'])) {
     jsonResponse(['success' => false, 'message' => '人机验证失败，请重试']);
 }
 
