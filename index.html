@@ -1399,7 +1399,28 @@
 
         function navigate(e, a) {
             e.stopPropagation();
-            window.open(`https://uri.amap.com/search?query=${encodeURIComponent(a.name)}&city=${encodeURIComponent(currentCityRef.current || city)}`, '_blank');
+            const name = a.name;
+            const cityName = currentCityRef.current || city;
+            // 如果有坐标，使用导航 URI；否则用搜索 URI
+            let appUrl, webUrl;
+            if (a.location) {
+                const [lng, lat] = a.location.split(',');
+                // 高德 App 唤起：直接导航到坐标+名称
+                appUrl = `amap://navi?sourceApplication=umap&poiname=${encodeURIComponent(name)}&poiid=&lat=${lat}&lon=${lng}&dev=0&style=2`;
+                webUrl = `https://uri.amap.com/navigation?to=${lng},${lat},${encodeURIComponent(name)}&mode=car&policy=1&src=umap&coordinate=gaode&callnative=1`;
+            } else {
+                appUrl = `amap://poi?sourceApplication=umap&keywords=${encodeURIComponent(name)}&city=${encodeURIComponent(cityName)}`;
+                webUrl = `https://uri.amap.com/search?query=${encodeURIComponent(name)}&city=${encodeURIComponent(cityName)}&callnative=1`;
+            }
+            // 先尝试唤起 App，超时后降级到网页
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = appUrl;
+            document.body.appendChild(iframe);
+            setTimeout(() => {
+                document.body.removeChild(iframe);
+                window.open(webUrl, '_blank');
+            }, 1200);
         }
 
         const showProgress = loading || (searched && (stepStates[1] !== 'pending' || stepStates[2] !== 'pending' || stepStates[3] !== 'pending'));
