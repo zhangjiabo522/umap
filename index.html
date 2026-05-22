@@ -203,6 +203,43 @@
         .profile-logout { background: var(--surface); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(15,20,55,0.06); }
         .profile-version { text-align: center; font-size: 11px; color: var(--text-muted); margin-top: 20px; padding-bottom: 8px; }
 
+        /* Sub-pages (Favorites / Account / Help) */
+        .sub-page { min-height: 100dvh; background: #F5F7FA; display: flex; flex-direction: column; }
+        .sub-page-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 16px; height: 56px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 50; box-shadow: 0 1px 8px rgba(0,0,0,0.04); }
+        .sub-page-back { width: 36px; height: 36px; border-radius: 50%; border: none; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-primary); font-size: 16px; -webkit-tap-highlight-color: transparent; transition: background 150ms; }
+        .sub-page-back:hover { background: #F1F5F9; }
+        .sub-page-title { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+        .sub-page-content { flex: 1; padding: 20px 16px; max-width: 480px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+        .sub-empty { text-align: center; padding: 60px 20px; }
+        .sub-empty-icon { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, rgba(21,101,239,0.1), rgba(13,148,136,0.1)); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 28px; color: var(--primary); }
+        .sub-empty h3 { font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+        .sub-empty p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
+        .settings-section { margin-bottom: 24px; }
+        .settings-section-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; padding-left: 4px; }
+        .settings-card { background: var(--surface); border-radius: 16px; padding: 16px; box-shadow: 0 2px 12px rgba(15,20,55,0.06); }
+        .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(228,231,237,0.7); }
+        .settings-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .settings-label { font-size: 14px; color: var(--text-secondary); }
+        .settings-value { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+        .settings-msg { padding: 10px 14px; border-radius: 10px; font-size: 13px; font-weight: 500; margin-bottom: 14px; }
+        .settings-msg.success { background: #ECFDF5; color: #059669; }
+        .settings-msg.error { background: #FEF2F2; color: #DC2626; }
+        .settings-field { margin-bottom: 12px; }
+        .settings-field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+        .settings-field input { width: 100%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; font-family: var(--font-body); background: #FAFBFF; color: var(--text-primary); outline: none; box-sizing: border-box; transition: border-color 150ms; }
+        .settings-field input:focus { border-color: var(--primary); }
+        .settings-btn-primary { width: 100%; padding: 12px; border: none; border-radius: 12px; background: var(--primary); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; font-family: var(--font-body); margin-top: 4px; transition: opacity 150ms; -webkit-tap-highlight-color: transparent; }
+        .settings-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+        .faq-list { background: var(--surface); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(15,20,55,0.06); }
+        .faq-item { border-bottom: 1px solid rgba(228,231,237,0.7); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .faq-item:last-child { border-bottom: none; }
+        .faq-q { display: flex; align-items: center; justify-content: space-between; padding: 15px 18px; font-size: 14px; font-weight: 500; color: var(--text-primary); gap: 12px; }
+        .faq-arrow { color: #CBD5E1; font-size: 12px; flex-shrink: 0; transition: transform 200ms; }
+        .faq-item.open .faq-arrow { transform: rotate(90deg); }
+        .faq-a { padding: 0 18px 14px; font-size: 13px; color: var(--text-secondary); line-height: 1.65; }
+        .feedback-textarea { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; font-family: var(--font-body); background: #FAFBFF; color: var(--text-primary); outline: none; resize: none; box-sizing: border-box; transition: border-color 150ms; margin-bottom: 12px; display: block; }
+        .feedback-textarea:focus { border-color: var(--primary); }
+
         /* ===== Preference Page ===== */
         .pref-page { min-height: 100vh; background: #F5F7FA; }
         .pref-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 32px; position: sticky; top: 0; z-index: 50; box-shadow: 0 1px 8px rgba(0,0,0,0.04); }
@@ -956,8 +993,7 @@
         );
     }
 
-    // ==================== Profile Tab ====================
-    function ProfileTab({ user, onLogout, onGoPrefs }) {
+    function ProfileTab({ user, onLogout, onGoPrefs, onNavigate }) {
         async function handleLogout() { await fetch('/api/logout.php'); onLogout(); }
         return (
             <div className="profile-content">
@@ -982,17 +1018,17 @@
                         </div>
                         <RightOutlined className="profile-menu-arrow" />
                     </div>
-                    <div className="profile-menu-item">
-                        <div className="profile-menu-icon" style={{ background: '#F0FDF9' }}>
-                            <BellOutlined style={{ color: 'var(--accent)', fontSize: 18 }} />
+                    <div className="profile-menu-item" onClick={() => onNavigate('favorites')}>
+                        <div className="profile-menu-icon" style={{ background: '#FFFBEB' }}>
+                            <StarFilled style={{ color: '#F59E0B', fontSize: 18 }} />
                         </div>
                         <div className="profile-menu-text">
-                            <h4>消息通知</h4>
-                            <p>管理推送与提醒设置</p>
+                            <h4>我的收藏</h4>
+                            <p>查看收藏的地点与路线</p>
                         </div>
                         <RightOutlined className="profile-menu-arrow" />
                     </div>
-                    <div className="profile-menu-item">
+                    <div className="profile-menu-item" onClick={() => onNavigate('account')}>
                         <div className="profile-menu-icon" style={{ background: '#FFF7ED' }}>
                             <SettingOutlined style={{ color: '#F97316', fontSize: 18 }} />
                         </div>
@@ -1002,7 +1038,7 @@
                         </div>
                         <RightOutlined className="profile-menu-arrow" />
                     </div>
-                    <div className="profile-menu-item">
+                    <div className="profile-menu-item" onClick={() => onNavigate('help')}>
                         <div className="profile-menu-icon" style={{ background: '#F5F5F5' }}>
                             <QuestionCircleOutlined style={{ color: '#8C93A3', fontSize: 18 }} />
                         </div>
@@ -1029,12 +1065,187 @@
         );
     }
 
+    // ==================== Favorites Page ====================
+    function FavoritesPage({ onBack }) {
+        return (
+            <div className="sub-page">
+                <div className="sub-page-header">
+                    <button className="sub-page-back" onClick={onBack}><ArrowLeftOutlined /></button>
+                    <span className="sub-page-title">我的收藏</span>
+                </div>
+                <div className="sub-page-content">
+                    <div className="sub-empty">
+                        <div className="sub-empty-icon"><StarFilled /></div>
+                        <h3>暂无收藏</h3>
+                        <p>收藏你感兴趣的地点，方便随时查看与规划行程</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ==================== Account Settings Page ====================
+    function AccountSettingsPage({ user, onBack }) {
+        const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' });
+        const [saving, setSaving] = useState(false);
+        const [msg, setMsg] = useState(null);
+
+        async function handleChangePw() {
+            if (!pwForm.current || !pwForm.newPw || !pwForm.confirm) {
+                setMsg({ type: 'error', text: '请填写所有字段' }); return;
+            }
+            if (pwForm.newPw !== pwForm.confirm) {
+                setMsg({ type: 'error', text: '两次密码不一致' }); return;
+            }
+            if (pwForm.newPw.length < 6) {
+                setMsg({ type: 'error', text: '新密码至少6位' }); return;
+            }
+            setSaving(true); setMsg(null);
+            try {
+                const res = await fetch('/api/change_password.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ current_password: pwForm.current, new_password: pwForm.newPw }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    setMsg({ type: 'success', text: '密码修改成功' });
+                    setPwForm({ current: '', newPw: '', confirm: '' });
+                } else {
+                    setMsg({ type: 'error', text: data.message || '修改失败' });
+                }
+            } catch { setMsg({ type: 'error', text: '网络错误，请重试' }); }
+            setSaving(false);
+        }
+
+        return (
+            <div className="sub-page">
+                <div className="sub-page-header">
+                    <button className="sub-page-back" onClick={onBack}><ArrowLeftOutlined /></button>
+                    <span className="sub-page-title">账号设置</span>
+                </div>
+                <div className="sub-page-content">
+                    <div className="settings-section">
+                        <div className="settings-section-title">账号信息</div>
+                        <div className="settings-card">
+                            <div className="settings-row">
+                                <span className="settings-label">用户名</span>
+                                <span className="settings-value">{user.username}</span>
+                            </div>
+                            <div className="settings-row">
+                                <span className="settings-label">邮箱</span>
+                                <span className="settings-value">{user.email}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="settings-section">
+                        <div className="settings-section-title">修改密码</div>
+                        <div className="settings-card">
+                            {msg && <div className={`settings-msg ${msg.type}`}>{msg.text}</div>}
+                            <div className="settings-field">
+                                <label>当前密码</label>
+                                <input type="password" placeholder="输入当前密码" value={pwForm.current}
+                                    onChange={e => setPwForm(p => ({ ...p, current: e.target.value }))} />
+                            </div>
+                            <div className="settings-field">
+                                <label>新密码</label>
+                                <input type="password" placeholder="至少6位" value={pwForm.newPw}
+                                    onChange={e => setPwForm(p => ({ ...p, newPw: e.target.value }))} />
+                            </div>
+                            <div className="settings-field">
+                                <label>确认新密码</label>
+                                <input type="password" placeholder="再次输入新密码" value={pwForm.confirm}
+                                    onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))} />
+                            </div>
+                            <button className="settings-btn-primary" onClick={handleChangePw} disabled={saving}>
+                                {saving ? '保存中...' : '保存修改'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // ==================== Help & Feedback Page ====================
+    function HelpPage({ onBack }) {
+        const [openFaq, setOpenFaq] = useState(null);
+        const [feedback, setFeedback] = useState('');
+        const [sending, setSending] = useState(false);
+        const [sent, setSent] = useState(false);
+
+        const faqs = [
+            { q: '如何设置旅游偏好？', a: '进入「我的」→「旅游偏好设置」，选择至少5个感兴趣的标签，保存后 AI 将根据你的偏好推荐目的地。' },
+            { q: '地图定位不准怎么办？', a: '请确保已授权浏览器获取位置权限。如果 GPS 信号弱，系统会自动切换到 IP 定位，精度会有所降低。' },
+            { q: '收藏的地点在哪里查看？', a: '点击底部导航「我的」→「我的收藏」即可查看所有收藏地点。' },
+            { q: '如何修改账号密码？', a: '进入「我的」→「账号设置」→「修改密码」，填写当前密码和新密码后保存即可。' },
+            { q: 'AI 功能什么时候上线？', a: 'AI 智能助手正在开发中，将根据你的旅游偏好提供个性化推荐，敬请期待。' },
+        ];
+
+        async function handleSend() {
+            if (!feedback.trim()) return;
+            setSending(true);
+            await new Promise(r => setTimeout(r, 700));
+            setSending(false);
+            setSent(true);
+            setFeedback('');
+        }
+
+        return (
+            <div className="sub-page">
+                <div className="sub-page-header">
+                    <button className="sub-page-back" onClick={onBack}><ArrowLeftOutlined /></button>
+                    <span className="sub-page-title">帮助与反馈</span>
+                </div>
+                <div className="sub-page-content">
+                    <div className="settings-section">
+                        <div className="settings-section-title">常见问题</div>
+                        <div className="faq-list">
+                            {faqs.map((item, i) => (
+                                <div key={i} className={`faq-item${openFaq === i ? ' open' : ''}`}
+                                    onClick={() => setOpenFaq(openFaq === i ? null : i)}>
+                                    <div className="faq-q">
+                                        <span>{item.q}</span>
+                                        <RightOutlined className="faq-arrow" />
+                                    </div>
+                                    {openFaq === i && <div className="faq-a">{item.a}</div>}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="settings-section">
+                        <div className="settings-section-title">意见反馈</div>
+                        <div className="settings-card">
+                            {sent ? (
+                                <div className="settings-msg success">感谢你的反馈，我们会认真改进！</div>
+                            ) : (
+                                <>
+                                    <textarea className="feedback-textarea" rows={4}
+                                        placeholder="告诉我们你的想法或遇到的问题..."
+                                        value={feedback} onChange={e => setFeedback(e.target.value)} />
+                                    <button className="settings-btn-primary" onClick={handleSend}
+                                        disabled={sending || !feedback.trim()}>
+                                        {sending ? '发送中...' : '提交反馈'}
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     // ==================== App Shell (logged in) ====================
     function AppShell({ user, onLogout }) {
         const [activeTab, setActiveTab] = useState('home');
         const [showPrefs, setShowPrefs] = useState(false);
+        const [subPage, setSubPage] = useState(null);
 
         if (showPrefs) return <PreferencePage user={user} onBack={() => setShowPrefs(false)} />;
+        if (subPage === 'favorites') return <FavoritesPage onBack={() => setSubPage(null)} />;
+        if (subPage === 'account') return <AccountSettingsPage user={user} onBack={() => setSubPage(null)} />;
+        if (subPage === 'help') return <HelpPage onBack={() => setSubPage(null)} />;
 
         return (
             <div className="app-shell">
@@ -1056,7 +1267,7 @@
                 <div className="app-content">
                     {activeTab === 'home' && <HomeTab user={user} onGoPrefs={() => setShowPrefs(true)} />}
                     {activeTab === 'ai' && <AITab />}
-                    {activeTab === 'profile' && <ProfileTab user={user} onLogout={onLogout} onGoPrefs={() => setShowPrefs(true)} />}
+                    {activeTab === 'profile' && <ProfileTab user={user} onLogout={onLogout} onGoPrefs={() => setShowPrefs(true)} onNavigate={setSubPage} />}
                 </div>
 
                 <div className="bottom-tab-bar">
