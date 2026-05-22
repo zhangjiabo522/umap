@@ -472,7 +472,7 @@
     const { useState, useEffect, useRef, useCallback } = React;
     const {
         Form, Input, Button, Card, message, Tabs, Typography, Space, Avatar, Dropdown, Layout,
-        Result, Tooltip, Tag, Spin, Progress, Popconfirm
+        Result, Tooltip, Tag, Spin, Progress, Popconfirm, Modal
     } = antd;
     const AntInput = antd.Input;
     const {
@@ -2376,6 +2376,20 @@
         const [subPage, setSubPage] = useState(null);
         const [headerSearch, setHeaderSearch] = useState('');
         const [citySearchQuery, setCitySearchQuery] = useState('');
+
+        useEffect(() => {
+            if (user && user.has_preferences === false) {
+                Modal.confirm({
+                    title: '设置旅游偏好',
+                    icon: <InfoCircleFilled />,
+                    content: '你还没有设置旅游偏好，设置后 AI 将为你提供更精准的旅行推荐。是否现在去设置？',
+                    okText: '去设置',
+                    cancelText: '稍后再说',
+                    onOk: () => setShowPrefs(true),
+                    centered: true,
+                });
+            }
+        }, [user]);
 
         if (showPrefs) return <PreferencePage user={user} onBack={() => setShowPrefs(false)} />;
         if (subPage === 'favorites') return <FavoritesPage onBack={() => setSubPage(null)} />;

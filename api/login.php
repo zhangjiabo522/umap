@@ -60,6 +60,10 @@ try {
     $_SESSION['user_id'] = $user['id'];
     $_SESSION['username'] = $user['username'];
 
+    $prefStmt = $db->prepare("SELECT COUNT(*) FROM user_preferences WHERE user_id = ?");
+    $prefStmt->execute([$user['id']]);
+    $hasPreferences = $prefStmt->fetchColumn() > 0;
+
     jsonResponse([
         'success' => true,
         'message' => '登录成功',
@@ -67,6 +71,7 @@ try {
             'id' => $user['id'],
             'username' => $user['username'],
             'email' => $user['email'],
+            'has_preferences' => $hasPreferences,
         ]
     ]);
 } catch (PDOException $e) {
