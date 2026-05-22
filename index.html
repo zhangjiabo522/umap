@@ -1317,20 +1317,12 @@
             const handleNav = () => {
                 const name = loc.name;
                 const city = loc.city || '';
-                let appUrl, webUrl;
                 if (hasCoord) {
                     const [lng, lat] = loc.location.split(',');
-                    appUrl = `amap://viewMap?sourceApplication=umap&poiname=${encodeURIComponent(name)}&lat=${lat}&lon=${lng}&dev=0`;
-                    webUrl = `https://uri.amap.com/marker?position=${lng},${lat}&name=${encodeURIComponent(name)}&callnative=1`;
+                    window.location.href = `https://uri.amap.com/marker?position=${lng},${lat}&name=${encodeURIComponent(name)}&src=umap&coordinate=gaode&callnative=1`;
                 } else {
-                    appUrl = `amap://poi?sourceApplication=umap&keywords=${encodeURIComponent(name)}&city=${encodeURIComponent(city)}`;
-                    webUrl = `https://uri.amap.com/search?query=${encodeURIComponent(name)}&city=${encodeURIComponent(city)}&callnative=1`;
+                    window.location.href = `https://uri.amap.com/search?query=${encodeURIComponent(name)}&city=${encodeURIComponent(city)}&callnative=1`;
                 }
-                const iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.src = appUrl;
-                document.body.appendChild(iframe);
-                setTimeout(() => { document.body.removeChild(iframe); window.open(webUrl, '_blank'); }, 1200);
             };
 
             return (
@@ -1776,13 +1768,7 @@
             const cityName = a.city || '';
             if (a.location) {
                 const [lng, lat] = a.location.split(',');
-                const appUrl = `amap://viewMap?sourceApplication=umap&poiname=${encodeURIComponent(a.name)}&lat=${lat}&lon=${lng}&dev=0`;
-                const webUrl = `https://uri.amap.com/marker?position=${lng},${lat}&name=${encodeURIComponent(a.name)}&callnative=1`;
-                const iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.src = appUrl;
-                document.body.appendChild(iframe);
-                setTimeout(() => { document.body.removeChild(iframe); window.open(webUrl, '_blank'); }, 1200);
+                window.location.href = `https://uri.amap.com/marker?position=${lng},${lat}&name=${encodeURIComponent(a.name)}&src=umap&coordinate=gaode&callnative=1`;
             } else {
                 window.location.href = `https://uri.amap.com/search?query=${encodeURIComponent(a.name)}&city=${encodeURIComponent(cityName)}&callnative=1`;
             }
@@ -2236,23 +2222,12 @@
             e.stopPropagation();
             const name = a.name;
             const cityName = currentCityRef.current || city;
-            let appUrl, webUrl;
             if (a.location) {
                 const [lng, lat] = a.location.split(',');
-                appUrl = `amap://viewMap?sourceApplication=umap&poiname=${encodeURIComponent(name)}&lat=${lat}&lon=${lng}&dev=0`;
-                webUrl = `https://uri.amap.com/marker?position=${lng},${lat}&name=${encodeURIComponent(name)}&callnative=1`;
+                window.location.href = `https://uri.amap.com/marker?position=${lng},${lat}&name=${encodeURIComponent(name)}&src=umap&coordinate=gaode&callnative=1`;
             } else {
-                appUrl = `amap://poi?sourceApplication=umap&keywords=${encodeURIComponent(name)}&city=${encodeURIComponent(cityName)}`;
-                webUrl = `https://uri.amap.com/search?query=${encodeURIComponent(name)}&city=${encodeURIComponent(cityName)}&callnative=1`;
+                window.location.href = `https://uri.amap.com/search?query=${encodeURIComponent(name)}&city=${encodeURIComponent(cityName)}&callnative=1`;
             }
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.src = appUrl;
-            document.body.appendChild(iframe);
-            setTimeout(() => {
-                document.body.removeChild(iframe);
-                window.open(webUrl, '_blank');
-            }, 1200);
         }
 
         const showProgress = loading || (searched && (stepStates[1] !== 'pending' || stepStates[2] !== 'pending' || stepStates[3] !== 'pending'));
