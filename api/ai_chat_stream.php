@@ -36,46 +36,90 @@ try {
     $message = trim($_POST['message'] ?? '');
     $favorite = parseFavorite($_POST['favorite'] ?? '');
     $attachments = normalizeUploadedFiles($_FILES['attachments'] ?? null);
+    $sessionId = intval($_POST['session_id'] ?? 0);
 
     if ($message === '' && empty($attachments)) {
         sendEvt('error', ['message' => '请输入问题或上传文件']);
         exit;
     }
 
+    $db = getDB();
+    $userId = intval($_SESSION['user_id']);
+    ensureChatTables($db);
+
+    // Create session if not provided
+    if ($sessionId <= 0) {
+        $title = mb_substr($message ?: '图片对话', 0, 20);
+        $stmt = $db->prepare("INSERT INTO ai_chat_sessions (user_id, title) VALUES (?, ?)");
+        $stmt->execute([$userId, $title]);
+        $sessionId = intval($db->lastInsertId());
+        sendEvt('session', ['session_id' => $sessionId, 'title' => $title]);
+    }
+
+    // Save user message
+    $attachJson = empty($attachments) ? null : json_encode(array_map(fn($a) => ['name' => $a['name'], 'type' => $a['type']], $attachments), JSON_UNESCAPED_UNICODE);
+    $favJson = empty($favorite) ? null : json_encode($favorite, JSON_UNESCAPED_UNICODE);
+    $stmt = $db->prepare("INSERT INTO ai_chat_messages (session_id, role, content, favorite, attachments) VALUES (?, 'user', ?, ?, ?)");
+    $stmt->execute([$sessionId, $message ?: '(上传文件)', $favJson, $attachJson]);
+
     sendEvt('status', ['message' => '正在校验上传内容...']);
     $mediaItems = buildMediaItems($attachments);
 
     sendEvt('status', ['message' => '正在读取你的旅行画像...']);
-    $profile = loadUserProfile(getDB(), intval($_SESSION['user_id']));
+    $profile = loadUserProfile($db, $userId);
+
+    // Load conversation history (last 10 rounds)
+    $historyMessages = loadHistoryMessages($db, $sessionId, 10);
 
     $text = buildUserText($message, $favorite, $mediaItems);
     $hasImage = false;
     foreach ($mediaItems as $m) { if (($m['type'] ?? '') === 'image_url') { $hasImage = true; break; } }
     $model = $hasImage ? (defined('MIMO_VISION_MODEL') ? MIMO_VISION_MODEL : 'mimo-v2.5') : MIMO_MODEL;
+
+    $mimoMessages = [['role' => 'system', 'content' => buildSystemPrompt($profile)]];
+    foreach ($historyMessages as $hm) {
+        $mimoMessages[] = ['role' => $hm['role'] === 'user' ? 'user' : 'assistant', 'content' => $hm['content']];
+    }
+    // Replace last user message with current (includes media)
+    if (!empty($historyMessages)) array_pop($mimoMessages);
+    $mimoMessages[] = ['role' => 'user', 'content' => array_merge($mediaItems, [['type' => 'text', 'text' => $text]])];
+
     $payload = [
         'model' => $model,
-        'messages' => [
-            ['role' => 'system', 'content' => buildSystemPrompt($profile)],
-            ['role' => 'user', 'content' => array_merge($mediaItems, [['type' => 'text', 'text' => $text]])],
-        ],
+        'messages' => $mimoMessages,
         'max_completion_tokens' => 2048,
         'stream' => true,
     ];
 
     sendEvt('status', ['message' => 'AI 正在分析并生成回答...']);
-    $streamResult = callMimo($payload, true);
+    $fullThink = '';
+    $fullContent = '';
+    $streamResult = callMimo($payload, true, $fullThink, $fullContent);
     if (!$streamResult['ok'] || !$streamResult['emitted']) {
         $payload['stream'] = false;
         $result = callMimoNonStream($payload);
-        if (!empty($result['think'])) sendEvt('think', ['text' => $result['think']]);
-        if ($result['content'] === '') {
+        $fullThink = $result['think'];
+        $fullContent = $result['content'];
+        if (!empty($fullThink)) sendEvt('think', ['text' => $fullThink]);
+        if ($fullContent === '') {
             sendEvt('error', ['message' => 'AI 暂时没有返回内容，请稍后重试']);
             exit;
         }
-        streamText($result['content']);
+        streamText($fullContent);
     }
 
-    sendEvt('done', ['message' => '完成']);
+    // Save AI response
+    $stmt = $db->prepare("INSERT INTO ai_chat_messages (session_id, role, content, think) VALUES (?, 'assistant', ?, ?)");
+    $stmt->execute([$sessionId, $fullContent, $fullThink ?: null]);
+
+    // Auto-generate title after first exchange
+    $msgCount = $db->prepare("SELECT COUNT(*) FROM ai_chat_messages WHERE session_id = ?");
+    $msgCount->execute([$sessionId]);
+    if ($msgCount->fetchColumn() <= 2) {
+        generateSessionTitle($db, $sessionId, $message ?: '图片分析');
+    }
+
+    sendEvt('done', ['message' => '完成', 'session_id' => $sessionId]);
 } catch (RuntimeException $e) {
     sendEvt('error', ['message' => $e->getMessage()]);
 } catch (Throwable $e) {
@@ -317,12 +361,13 @@ function buildUserText(string $message, array $favorite, array $mediaItems): str
     return $text;
 }
 
-function callMimo(array $payload, bool $stream): array {
+function callMimo(array $payload, bool $stream, string &$outThink = null, string &$outContent = null): array {
     $buffer = '';
     $raw = '';
     $emitted = false;
     $done = false;
     $thinkBuf = '';
+    $contentBuf = '';
 
     $ch = curl_init(MIMO_BASE_URL . '/chat/completions');
     curl_setopt_array($ch, [
@@ -331,7 +376,7 @@ function callMimo(array $payload, bool $stream): array {
         CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'api-key: ' . MIMO_API_KEY],
         CURLOPT_RETURNTRANSFER => false,
         CURLOPT_TIMEOUT => 150,
-        CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use (&$buffer, &$raw, &$emitted, &$done, &$thinkBuf) {
+        CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use (&$buffer, &$raw, &$emitted, &$done, &$thinkBuf, &$contentBuf) {
             $raw .= $chunk;
             $buffer .= $chunk;
             while (($pos = strpos($buffer, "\n\n")) !== false) {
@@ -353,6 +398,7 @@ function callMimo(array $payload, bool $stream): array {
                     $text = $delta['content'] ?? '';
                     if ($text !== '') {
                         $emitted = true;
+                        $contentBuf .= $text;
                         sendEvt('delta', ['text' => $text]);
                     }
                 }
@@ -366,6 +412,8 @@ function callMimo(array $payload, bool $stream): array {
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
+    if ($outThink !== null) $outThink = $thinkBuf;
+    if ($outContent !== null) $outContent = $contentBuf;
     return ['ok' => $ok !== false && $status >= 200 && $status < 300 && ($emitted || $done), 'emitted' => $emitted, 'status' => $status, 'body' => $raw, 'error' => $err];
 }
 
@@ -393,5 +441,74 @@ function streamText(string $text): void {
     $len = mb_strlen($text, 'UTF-8');
     for ($i = 0; $i < $len; $i += 24) {
         sendEvt('delta', ['text' => mb_substr($text, $i, 24, 'UTF-8')]);
+    }
+}
+
+function ensureChatTables(PDO $db): void {
+    $db->exec("CREATE TABLE IF NOT EXISTS `ai_chat_sessions` (
+        `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        `user_id` INT UNSIGNED NOT NULL,
+        `title` VARCHAR(100) NOT NULL DEFAULT '新对话',
+        `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        KEY `idx_user_updated` (`user_id`, `updated_at`),
+        CONSTRAINT `fk_acs_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS `ai_chat_messages` (
+        `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        `session_id` INT UNSIGNED NOT NULL,
+        `role` ENUM('user','assistant') NOT NULL,
+        `content` TEXT NOT NULL,
+        `think` TEXT DEFAULT NULL,
+        `favorite` JSON DEFAULT NULL,
+        `attachments` JSON DEFAULT NULL,
+        `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY `idx_session_created` (`session_id`, `created_at`),
+        CONSTRAINT `fk_acm_session` FOREIGN KEY (`session_id`) REFERENCES `ai_chat_sessions`(`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+}
+
+function loadHistoryMessages(PDO $db, int $sessionId, int $maxRounds): array {
+    $limit = $maxRounds * 2;
+    $stmt = $db->prepare("SELECT role, content FROM ai_chat_messages WHERE session_id = ? ORDER BY created_at DESC LIMIT ?");
+    $stmt->execute([$sessionId, $limit]);
+    $rows = array_reverse($stmt->fetchAll());
+    return $rows;
+}
+
+function generateSessionTitle(PDO $db, int $sessionId, string $firstMsg): void {
+    $apiKey = MIMO_API_KEY;
+    if (!$apiKey) return;
+
+    $prompt = "根据以下用户消息，生成一个简短的对话标题（不超过15个字，不要引号和标点）：\n" . mb_substr($firstMsg, 0, 200);
+
+    $ch = curl_init(MIMO_BASE_URL . '/chat/completions');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode([
+            'model' => MIMO_MODEL,
+            'messages' => [
+                ['role' => 'system', 'content' => '你是一个标题生成器。只输出标题文字，不要其他内容。'],
+                ['role' => 'user', 'content' => $prompt],
+            ],
+            'max_completion_tokens' => 50,
+            'stream' => false,
+        ], JSON_UNESCAPED_UNICODE),
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'api-key: ' . $apiKey],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 15,
+    ]);
+    $resp = curl_exec($ch);
+    curl_close($ch);
+
+    if (!$resp) return;
+    $data = json_decode($resp, true);
+    $title = trim($data['choices'][0]['message']['content'] ?? '');
+    $title = trim($title, "\"' \t\n\r\0\x0B");
+    if ($title !== '' && mb_strlen($title) <= 30) {
+        $stmt = $db->prepare("UPDATE ai_chat_sessions SET title = ? WHERE id = ?");
+        $stmt->execute([$title, $sessionId]);
+        sendEvt('title', ['title' => $title]);
     }
 }
