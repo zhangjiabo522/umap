@@ -866,7 +866,7 @@
 
         function locateUser(AMap, map) {
             setLocStatus('loading');
-            setLocLabel('GPS 精准定位中...');
+            setLocLabel('GPS');
             setRefreshing(true);
             if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
 
@@ -896,9 +896,8 @@
                 });
                 map.add(marker);
                 markerRef.current = marker;
-                const accuracy = result.accuracy ? ` ±${Math.round(result.accuracy)}米` : '';
                 setLocStatus('gps');
-                setLocLabel(`GPS 精准定位${accuracy}`);
+                setLocLabel('GPS');
                 setRefreshing(false);
             }
 
