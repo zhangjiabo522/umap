@@ -981,8 +981,7 @@
             setRefreshing(true);
             if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
 
-            function applyPosition(result, type) {
-                const { lng, lat } = result.position;
+            function applyLngLat(lng, lat, type) {
                 map.setCenter([lng, lat]);
                 map.setZoom(17);
                 const marker = new AMap.Marker({
@@ -993,7 +992,7 @@
                 });
                 map.add(marker);
                 markerRef.current = marker;
-                setLocStatus(type === 'gps' ? 'gps' : 'ip');
+                setLocStatus(type);
                 setLocLabel(type === 'gps' ? 'GPS' : '网络定位');
                 setRefreshing(false);
             }
@@ -1012,48 +1011,51 @@
                 });
             }
 
-            // Phase 1: quick fix using network/WiFi (low accuracy, <3s)
-            const geoQuick = new AMap.Geolocation({
-                enableHighAccuracy: false,
-                timeout: 5000,
-                maximumAge: 30000,
-                convert: true,
-                GeoLocationFirst: true,
-            });
+            // Use browser native Geolocation API to trigger permission prompt
+            if (!navigator.geolocation) {
+                // No native geolocation, fallback to AMap IP
+                fallbackCity();
+                return;
+            }
 
-            geoQuick.getCurrentPosition((status, result) => {
-                if (status === 'complete') {
-                    applyPosition(result, result.accuracy <= 100 ? 'gps' : 'network');
-                    // Phase 2: background precise GPS upgrade
-                    const geoPrecise = new AMap.Geolocation({
-                        enableHighAccuracy: true,
-                        timeout: 8000,
-                        maximumAge: 0,
-                        convert: true,
-                    });
-                    geoPrecise.getCurrentPosition((s2, r2) => {
-                        if (s2 === 'complete' && r2.accuracy < (result.accuracy || Infinity)) {
-                            applyPosition(r2, 'gps');
-                        }
-                    });
-                } else {
-                    // Phase 1 failed, try precise GPS directly
-                    const geoFallback = new AMap.Geolocation({
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 0,
-                        convert: true,
-                        GeoLocationFirst: true,
-                    });
-                    geoFallback.getCurrentPosition((s2, r2) => {
-                        if (s2 === 'complete') {
-                            applyPosition(r2, 'gps');
+            let applied = false;
+
+            // Quick attempt: low accuracy, accept cached (triggers permission dialog)
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    if (applied) return;
+                    applied = true;
+                    const { longitude: lng, latitude: lat, accuracy } = pos.coords;
+                    // WGS-84 → GCJ-02 conversion via AMap
+                    AMap.convertFrom([lng, lat], 'gps', (status, result) => {
+                        if (status === 'complete' && result.locations?.[0]) {
+                            const [gLng, gLat] = result.locations[0];
+                            applyLngLat(gLng, gLat, accuracy <= 100 ? 'gps' : 'ip');
                         } else {
-                            fallbackCity();
+                            applyLngLat(lng, lat, 'ip');
                         }
                     });
-                }
-            });
+                    // Background precise GPS upgrade
+                    navigator.geolocation.getCurrentPosition(
+                        (pos2) => {
+                            if (pos2.coords.accuracy < (accuracy || Infinity)) {
+                                AMap.convertFrom([pos2.coords.longitude, pos2.coords.latitude], 'gps', (s2, r2) => {
+                                    if (s2 === 'complete' && r2.locations?.[0]) {
+                                        applyLngLat(r2.locations[0][0], r2.locations[0][1], 'gps');
+                                    }
+                                });
+                            }
+                        },
+                        () => {},
+                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                    );
+                },
+                (err) => {
+                    // Permission denied or timeout — fallback to AMap IP
+                    fallbackCity();
+                },
+                { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 }
+            );
         }
 
         useEffect(() => {
