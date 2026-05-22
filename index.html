@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UMap - 你的地图</title>
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <script>window._AMapSecurityConfig = { securityJsCode: 'b0ef07935cd63b7d39ff9650072f69e1' };</script>
+    <script src="https://webapi.amap.com/loader.js"></script>
     <style>
         @font-face { font-family: 'AlibabaPuHuiTi'; src: url('https://cdn.jsdelivr.net/npm/@fontpkg/alibaba-pu-hui-ti-2-0/AlibabaPuHuiTi-2-55-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
         @font-face { font-family: 'AlibabaPuHuiTi'; src: url('https://cdn.jsdelivr.net/npm/@fontpkg/alibaba-pu-hui-ti-2-0/AlibabaPuHuiTi-2-65-Medium.ttf') format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
@@ -140,6 +142,17 @@
         .home-stat { flex: 1; background: var(--surface); border-radius: 14px; padding: 14px 12px; text-align: center; box-shadow: 0 2px 8px rgba(15,20,55,0.05); }
         .home-stat-num { font-family: var(--font-heading); font-size: 22px; font-weight: 800; color: var(--primary); letter-spacing: -0.02em; }
         .home-stat-label { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+        /* Home Map Layout */
+        .home-map-page { display: flex; flex-direction: column; }
+        .home-map-container { width: 100%; height: 260px; position: relative; flex-shrink: 0; background: #E8EDF2; }
+        .home-map { width: 100%; height: 100%; }
+        .home-map-status { position: absolute; top: 12px; left: 12px; z-index: 10; display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 20px; padding: 6px 12px; font-size: 12px; font-weight: 600; box-shadow: 0 2px 12px rgba(0,0,0,0.12); }
+        .home-map-status.gps { color: #059669; }
+        .home-map-status.ip { color: #D97706; }
+        .home-map-status.loading { color: var(--primary); }
+        .home-map-status.failed { color: #DC2626; }
+        .home-scroll-area { padding: 16px; }
 
         /* AI Tab */
         .ai-content { max-width: 480px; margin: 0 auto; padding: 20px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100dvh - 130px); }
@@ -628,62 +641,122 @@
 
     // ==================== Home Tab ====================
     function HomeTab({ user, onGoPrefs }) {
+        const mapContainerRef = useRef(null);
+        const mapRef = useRef(null);
+        const [locStatus, setLocStatus] = useState('loading');
+        const [locLabel, setLocLabel] = useState('定位中...');
+
+        useEffect(() => {
+            if (!window.AMapLoader) { setLocStatus('failed'); setLocLabel('地图未加载'); return; }
+            let destroyed = false;
+
+            window.AMapLoader.load({
+                key: 'AMAP_KEY_REMOVED',
+                version: '2.0',
+                plugins: ['AMap.Geolocation', 'AMap.CitySearch'],
+            }).then(AMap => {
+                if (destroyed) return;
+                AMap.getConfig().appname = 'amap-jsapi-skill';
+
+                const map = new AMap.Map(mapContainerRef.current, {
+                    zoom: 13,
+                    mapStyle: 'amap://styles/normal',
+                });
+                mapRef.current = map;
+
+                const geo = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 8000, zoomToAccuracy: true });
+                geo.getCurrentPosition((status, result) => {
+                    if (destroyed) return;
+                    if (status === 'complete') {
+                        map.setCenter([result.position.lng, result.position.lat]);
+                        map.setZoom(14);
+                        setLocStatus('gps');
+                        setLocLabel('GPS 定位');
+                    } else {
+                        const city = new AMap.CitySearch();
+                        city.getLocalCity((s2, r2) => {
+                            if (destroyed) return;
+                            if (s2 === 'complete' && r2.bounds) {
+                                map.setBounds(r2.bounds);
+                                setLocStatus('ip');
+                                setLocLabel(r2.city || 'IP 定位');
+                            } else {
+                                setLocStatus('failed');
+                                setLocLabel('定位失败');
+                            }
+                        });
+                    }
+                });
+            }).catch(() => { setLocStatus('failed'); setLocLabel('地图加载失败'); });
+
+            return () => {
+                destroyed = true;
+                if (mapRef.current) { mapRef.current.destroy(); mapRef.current = null; }
+            };
+        }, []);
+
+        const statusIcon = locStatus === 'loading'
+            ? <LoadingOutlined />
+            : <EnvironmentOutlined />;
+
         return (
-            <div className="home-content">
-                <div className="home-hero">
-                    <div className="home-hero-content">
-                        <div className="home-hero-greeting">欢迎回来</div>
-                        <h2><span className="home-hero-username">{user.username}</span> 👋</h2>
-                        <p>探索世界，发现属于你的地图故事</p>
-                        <button className="home-hero-btn">
-                            <EnvironmentOutlined />
-                            开始探索地图
-                        </button>
-                    </div>
+            <div className="home-map-page">
+                <div className="home-map-container">
+                    <div ref={mapContainerRef} className="home-map"></div>
+                    <div className={`home-map-status ${locStatus}`}>{statusIcon}{locLabel}</div>
                 </div>
-                <div className="home-stats">
-                    <div className="home-stat">
-                        <div className="home-stat-num">0</div>
-                        <div className="home-stat-label">收藏地点</div>
-                    </div>
-                    <div className="home-stat">
-                        <div className="home-stat-num">0</div>
-                        <div className="home-stat-label">规划路线</div>
-                    </div>
-                    <div className="home-stat">
-                        <div className="home-stat-num">0</div>
-                        <div className="home-stat-label">探索足迹</div>
-                    </div>
-                </div>
-                <div className="home-section-title">快捷功能</div>
-                <div className="home-cards">
-                    <div className="home-card" onClick={onGoPrefs}>
-                        <div className="home-card-icon" style={{ background: '#EEF4FF' }}>
-                            <HeartFilled style={{ color: 'var(--primary)' }} />
+                <div className="home-scroll-area">
+                    <div className="home-hero">
+                        <div className="home-hero-content">
+                            <div className="home-hero-greeting">欢迎回来</div>
+                            <h2><span className="home-hero-username">{user.username}</span> 👋</h2>
+                            <p>探索世界，发现属于你的地图故事</p>
                         </div>
-                        <h4>旅游偏好</h4>
-                        <p>设置你的旅行风格与兴趣标签</p>
                     </div>
-                    <div className="home-card">
-                        <div className="home-card-icon" style={{ background: '#F0FDF9' }}>
-                            <StarFilled style={{ color: 'var(--accent)' }} />
+                    <div className="home-stats">
+                        <div className="home-stat">
+                            <div className="home-stat-num">0</div>
+                            <div className="home-stat-label">收藏地点</div>
                         </div>
-                        <h4>收藏地点</h4>
-                        <p>查看你保存的地图收藏</p>
+                        <div className="home-stat">
+                            <div className="home-stat-num">0</div>
+                            <div className="home-stat-label">规划路线</div>
+                        </div>
+                        <div className="home-stat">
+                            <div className="home-stat-num">0</div>
+                            <div className="home-stat-label">探索足迹</div>
+                        </div>
                     </div>
-                    <div className="home-card">
-                        <div className="home-card-icon" style={{ background: '#FFF7ED' }}>
-                            <TagsOutlined style={{ color: '#F97316' }} />
+                    <div className="home-section-title">快捷功能</div>
+                    <div className="home-cards">
+                        <div className="home-card" onClick={onGoPrefs}>
+                            <div className="home-card-icon" style={{ background: '#EEF4FF' }}>
+                                <HeartFilled style={{ color: 'var(--primary)' }} />
+                            </div>
+                            <h4>旅游偏好</h4>
+                            <p>设置你的旅行风格与兴趣标签</p>
                         </div>
-                        <h4>路线规划</h4>
-                        <p>智能生成个性化旅行路线</p>
-                    </div>
-                    <div className="home-card">
-                        <div className="home-card-icon" style={{ background: '#FDF4FF' }}>
-                            <EnvironmentOutlined style={{ color: '#A855F7' }} />
+                        <div className="home-card">
+                            <div className="home-card-icon" style={{ background: '#F0FDF9' }}>
+                                <StarFilled style={{ color: 'var(--accent)' }} />
+                            </div>
+                            <h4>收藏地点</h4>
+                            <p>查看你保存的地图收藏</p>
                         </div>
-                        <h4>附近发现</h4>
-                        <p>探索周边热门地点与活动</p>
+                        <div className="home-card">
+                            <div className="home-card-icon" style={{ background: '#FFF7ED' }}>
+                                <TagsOutlined style={{ color: '#F97316' }} />
+                            </div>
+                            <h4>路线规划</h4>
+                            <p>智能生成个性化旅行路线</p>
+                        </div>
+                        <div className="home-card">
+                            <div className="home-card-icon" style={{ background: '#FDF4FF' }}>
+                                <EnvironmentOutlined style={{ color: '#A855F7' }} />
+                            </div>
+                            <h4>附近发现</h4>
+                            <p>探索周边热门地点与活动</p>
+                        </div>
                     </div>
                 </div>
             </div>
