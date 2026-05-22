@@ -23,6 +23,7 @@ if (!$input) {
 $username = sanitizeInput($input['username'] ?? '');
 $email = filter_var(trim($input['email'] ?? ''), FILTER_VALIDATE_EMAIL);
 $password = $input['password'] ?? '';
+$inviteCode = trim($input['invite_code'] ?? '');
 $recaptchaToken = $input['recaptcha_token'] ?? '';
 
 if (empty($username) || strlen($username) < 3 || strlen($username) > 50) {
@@ -44,6 +45,10 @@ if (empty($recaptchaToken)) {
 $recaptchaResult = verifyRecaptcha($recaptchaToken);
 if (empty($recaptchaResult['success'])) {
     jsonResponse(['success' => false, 'message' => '人机验证失败，请重试']);
+}
+
+if ($inviteCode !== 'Bohack2026') {
+    jsonResponse(['success' => false, 'message' => '邀请码错误']);
 }
 
 try {
