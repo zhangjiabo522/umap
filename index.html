@@ -218,8 +218,8 @@
         .ai-actions { display: flex; gap: 4px; padding: 8px 4px 0; }
         .ai-action-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: #f5f7fa; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; transition: all 150ms; -webkit-tap-highlight-color: transparent; position: relative; }
         .ai-action-btn:hover { background: #EEF4FF; color: var(--primary); }
-        .ai-action-btn.recording { background: #FFF1F0; color: #DC2626; animation: ai-pulse 1s infinite; }
-        @keyframes ai-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.3); } 50% { box-shadow: 0 0 0 8px rgba(220,38,38,0); } }
+
+
         .ai-fav-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: flex-end; justify-content: center; }
         .ai-fav-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
         .ai-fav-sheet { position: relative; background: var(--surface); border-radius: 20px 20px 0 0; width: 100%; max-width: 480px; max-height: 60vh; display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom); }
@@ -427,7 +427,7 @@
         LoadingOutlined, StarFilled, DeleteOutlined, HomeOutlined, RobotOutlined,
         RightOutlined, SettingOutlined, BellOutlined, QuestionCircleOutlined, AimOutlined,
         SearchOutlined, CompassOutlined, EllipsisOutlined, LikeOutlined, DislikeOutlined,
-        SendOutlined, PictureOutlined, AudioOutlined
+        SendOutlined, PictureOutlined
     } = icons;
 
     const RECAPTCHA_SITE_KEY = '6LeBLvcsAAAAAANaL5q8z4tVmVu1QPbrzarCBeoi';
@@ -1096,15 +1096,10 @@
         const [selectedFavorite, setSelectedFavorite] = useState(null);
         const [showFavPicker, setShowFavPicker] = useState(false);
         const [attachedFiles, setAttachedFiles] = useState([]);
-        const [recording, setRecording] = useState(false);
         const [statusText, setStatusText] = useState('');
-        const mediaRecorderRef = useRef(null);
-        const chunksRef = useRef([]);
         const chatEndRef = useRef(null);
         const textareaRef = useRef(null);
         const imgInputRef = useRef(null);
-        const audInputRef = useRef(null);
-        const recordingRef = useRef(false);
 
         useEffect(() => { loadFavorites(); }, []);
         useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
@@ -1133,46 +1128,6 @@
             setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
         }
 
-        async function startRecording() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const mr = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm' });
-                chunksRef.current = [];
-                mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-                mr.onstop = () => {
-                    stream.getTracks().forEach(t => t.stop());
-                    const blob = new Blob(chunksRef.current, { type: mr.mimeType });
-                    if (blob.size > 1000) {
-                        const ext = mr.mimeType.includes('webm') ? 'webm' : 'ogg';
-                        const file = new File([blob], `录音_${Date.now()}.${ext}`, { type: mr.mimeType });
-                        addFiles([file]);
-                    }
-                    setRecording(false);
-                    recordingRef.current = false;
-                };
-                mediaRecorderRef.current = mr;
-                mr.start();
-                setRecording(true);
-                recordingRef.current = true;
-            } catch (err) {
-                message.error('无法访问麦克风，请检查权限');
-            }
-        }
-
-        function stopRecording() {
-            const mr = mediaRecorderRef.current;
-            if (mr && mr.state === 'recording') mr.stop();
-        }
-
-        function handleMicDown(e) {
-            e.preventDefault();
-            if (!recordingRef.current) startRecording();
-        }
-
-        function handleMicUp(e) {
-            e.preventDefault();
-            if (recordingRef.current) stopRecording();
-        }
 
         async function sendMessage() {
             const text = inputText.trim();
@@ -1367,20 +1322,7 @@
                     </div>
                     <div className="ai-actions">
                         <input ref={imgInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={e => { if (e.target.files.length) addFiles(Array.from(e.target.files)); e.target.value = ''; }} />
-                        <input ref={audInputRef} type="file" accept="audio/*" style={{ display: 'none' }} onChange={e => { if (e.target.files.length) addFiles(Array.from(e.target.files)); e.target.value = ''; }} />
                         <button className="ai-action-btn" title="上传图片" onClick={() => imgInputRef.current?.click()}><PictureOutlined /></button>
-                        <button className="ai-action-btn" title="上传音频" onClick={() => audInputRef.current?.click()}><AudioOutlined /></button>
-                        <button
-                            className={`ai-action-btn${recording ? ' recording' : ''}`}
-                            title="长按录音"
-                            onMouseDown={handleMicDown}
-                            onMouseUp={handleMicUp}
-                            onMouseLeave={handleMicUp}
-                            onTouchStart={handleMicDown}
-                            onTouchEnd={handleMicUp}
-                        >
-                            <AudioOutlined />
-                        </button>
                         <button className="ai-action-btn" title="选择收藏地点" onClick={() => { loadFavorites(); setShowFavPicker(true); }}>
                             <EnvironmentOutlined />
                         </button>
