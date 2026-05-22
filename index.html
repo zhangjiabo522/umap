@@ -82,12 +82,67 @@
 
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
 
-        /* Dashboard */
-        .dashboard-page { min-height: 100vh; min-height: 100dvh; background: #F5F7FA; }
-        .dashboard-header { background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-mid) 60%, var(--bg-end) 100%); padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 16px rgba(15,20,55,0.15); }
-        .dash-brand { display: flex; align-items: center; gap: 10px; }
-        .dash-logo-icon { width: 38px; height: 38px; background: linear-gradient(135deg, var(--primary), var(--accent)); border-radius: 12px; display: flex; align-items: center; justify-content: center; }
-        .dash-title { font-family: var(--font-heading); font-weight: 700; font-size: 20px; color: #FFFFFF; letter-spacing: -0.01em; }
+        /* ===== App Shell (logged in) ===== */
+        .app-shell { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; background: #F5F7FA; }
+        .app-header { background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-mid) 60%, var(--bg-end) 100%); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 16px rgba(15,20,55,0.15); flex-shrink: 0; }
+        .app-header-brand { display: flex; align-items: center; gap: 10px; }
+        .app-header-logo { width: 34px; height: 34px; border-radius: 10px; overflow: hidden; background: #fff; padding: 3px; }
+        .app-header-logo img { width: 100%; height: 100%; object-fit: contain; border-radius: 7px; }
+        .app-header-title { font-family: var(--font-heading); font-weight: 700; font-size: 19px; color: #FFFFFF; letter-spacing: -0.01em; }
+        .app-header-user { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 5px 10px; border-radius: 10px; transition: background var(--transition-base); }
+        .app-header-user:hover { background: rgba(255,255,255,0.12); }
+        .app-content { flex: 1; overflow-y: auto; padding-bottom: 72px; }
+
+        /* Bottom Tab Bar */
+        .bottom-tab-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 200; background: var(--surface); border-top: 1px solid var(--border); display: flex; height: 64px; padding-bottom: env(safe-area-inset-bottom); box-shadow: 0 -4px 20px rgba(15,20,55,0.08); }
+        .bottom-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; cursor: pointer; border: none; background: transparent; font-family: var(--font-body); transition: all var(--transition-base); padding: 8px 0; position: relative; }
+        .bottom-tab .tab-icon { font-size: 22px; line-height: 1; transition: transform var(--transition-base), color var(--transition-base); color: var(--text-muted); }
+        .bottom-tab .tab-label { font-size: 11px; font-weight: 500; color: var(--text-muted); transition: color var(--transition-base); }
+        .bottom-tab.active .tab-icon { color: var(--primary); transform: translateY(-1px); }
+        .bottom-tab.active .tab-label { color: var(--primary); font-weight: 600; }
+        .bottom-tab.active::after { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 32px; height: 3px; background: var(--primary); border-radius: 0 0 3px 3px; }
+        .bottom-tab:active .tab-icon { transform: scale(0.88); }
+
+        /* Home Tab */
+        .home-content { max-width: 800px; margin: 0 auto; padding: 24px 20px; }
+        .home-hero { background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-mid) 60%, var(--bg-end) 100%); border-radius: var(--radius-lg); padding: 32px 28px; margin-bottom: 20px; position: relative; overflow: hidden; }
+        .home-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 60% 60% at 80% 20%, rgba(13,148,136,0.2) 0%, transparent 60%); }
+        .home-hero-content { position: relative; z-index: 1; }
+        .home-hero h2 { font-family: var(--font-heading); font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+        .home-hero p { font-size: 14px; color: rgba(255,255,255,0.7); margin-bottom: 20px; }
+        .home-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+        .home-card { background: var(--surface); border-radius: var(--radius-md); padding: 20px 18px; box-shadow: 0 2px 12px rgba(0,0,0,0.05); cursor: pointer; transition: all var(--transition-base); border: 1.5px solid transparent; }
+        .home-card:hover { border-color: var(--primary); box-shadow: 0 4px 20px rgba(21,101,239,0.12); transform: translateY(-2px); }
+        .home-card-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; font-size: 22px; }
+        .home-card h4 { font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+        .home-card p { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+        /* AI Tab */
+        .ai-content { max-width: 800px; margin: 0 auto; padding: 24px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - 140px); }
+        .ai-placeholder { text-align: center; }
+        .ai-placeholder-icon { width: 80px; height: 80px; border-radius: 24px; background: linear-gradient(135deg, #EBF3FF 0%, #E6F5F4 100%); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 40px; }
+        .ai-placeholder h3 { font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
+        .ai-placeholder p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; max-width: 280px; }
+        .ai-badge { display: inline-block; background: linear-gradient(135deg, var(--primary), var(--accent)); color: #fff; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 100px; margin-bottom: 16px; letter-spacing: 0.05em; }
+
+        /* Profile Tab */
+        .profile-content { max-width: 600px; margin: 0 auto; padding: 24px 20px; }
+        .profile-avatar-section { background: linear-gradient(135deg, var(--bg-start) 0%, var(--bg-mid) 60%, var(--bg-end) 100%); border-radius: var(--radius-lg); padding: 28px 24px; text-align: center; margin-bottom: 20px; }
+        .profile-avatar { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #6CB3FF 0%, #5EEADB 100%); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: #fff; margin: 0 auto 12px; font-family: var(--font-heading); border: 3px solid rgba(255,255,255,0.3); }
+        .profile-name { font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+        .profile-email { font-size: 13px; color: rgba(255,255,255,0.65); }
+        .profile-menu { background: var(--surface); border-radius: var(--radius-md); overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.05); margin-bottom: 16px; }
+        .profile-menu-item { display: flex; align-items: center; gap: 14px; padding: 16px 20px; cursor: pointer; transition: background var(--transition-base); border-bottom: 1px solid var(--border); }
+        .profile-menu-item:last-child { border-bottom: none; }
+        .profile-menu-item:hover { background: #F8F9FC; }
+        .profile-menu-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .profile-menu-text { flex: 1; }
+        .profile-menu-text h4 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+        .profile-menu-text p { font-size: 12px; color: var(--text-secondary); }
+        .profile-menu-arrow { color: var(--text-muted); font-size: 14px; }
+        .profile-logout { background: var(--surface); border-radius: var(--radius-md); overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.05); }
+
+        /* Dashboard legacy compat */
         .dash-content { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
         .welcome-card { border-radius: var(--radius-lg) !important; border: none !important; box-shadow: var(--shadow-card) !important; overflow: hidden; }
 
@@ -141,6 +196,9 @@
             .brand-features { display: none; }
             .auth-form-area { padding: 0 20px 40px; margin-top: -24px; }
             .auth-card-wrapper { background: var(--surface-glass); backdrop-filter: blur(12px); border-radius: var(--radius-lg); padding: 28px 24px; box-shadow: var(--shadow-elevated); margin-top: -32px; }
+            .app-header { padding: 12px 16px; }
+            .home-cards { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .home-content, .profile-content, .ai-content { padding: 16px; }
             .dashboard-header { padding: 14px 20px; }
             .pref-header { padding: 12px 16px; }
             .pref-tags { gap: 8px; }
@@ -161,7 +219,8 @@
         UserOutlined, LockOutlined, MailOutlined, EnvironmentOutlined, LogoutOutlined,
         CheckCircleFilled, SafetyOutlined, HeartFilled, TagsOutlined, PlusOutlined,
         CloseOutlined, ArrowLeftOutlined, SaveOutlined, InfoCircleFilled, WarningFilled,
-        LoadingOutlined, StarFilled, DeleteOutlined
+        LoadingOutlined, StarFilled, DeleteOutlined, HomeOutlined, RobotOutlined,
+        RightOutlined, SettingOutlined, BellOutlined, QuestionCircleOutlined
     } = icons;
 
     const RECAPTCHA_SITE_KEY = '6LeBLvcsAAAAAANaL5q8z4tVmVu1QPbrzarCBeoi';
@@ -529,64 +588,179 @@
         );
     }
 
-    // ==================== Dashboard ====================
-    function Dashboard({ user, onLogout, onPreferences }) {
-        const [prefInfo, setPrefInfo] = useState(null);
+    // ==================== Home Tab ====================
+    function HomeTab({ user, onGoPrefs }) {
+        return (
+            <div className="home-content">
+                <div className="home-hero">
+                    <div className="home-hero-content">
+                        <h2>你好，{user.username} 👋</h2>
+                        <p>探索世界，发现属于你的地图故事</p>
+                        <Button type="primary" size="large" icon={<EnvironmentOutlined />}
+                            style={{ borderRadius: 10, fontWeight: 600, height: 44 }}>
+                            开始探索地图
+                        </Button>
+                    </div>
+                </div>
+                <div className="home-cards">
+                    <div className="home-card" onClick={onGoPrefs}>
+                        <div className="home-card-icon" style={{ background: '#EEF4FF' }}>
+                            <HeartFilled style={{ color: 'var(--primary)' }} />
+                        </div>
+                        <h4>旅游偏好</h4>
+                        <p>设置你的旅行风格与兴趣标签</p>
+                    </div>
+                    <div className="home-card">
+                        <div className="home-card-icon" style={{ background: '#F0FDF9' }}>
+                            <StarFilled style={{ color: 'var(--accent)' }} />
+                        </div>
+                        <h4>收藏地点</h4>
+                        <p>查看你保存的地图收藏</p>
+                    </div>
+                    <div className="home-card">
+                        <div className="home-card-icon" style={{ background: '#FFF7ED' }}>
+                            <TagsOutlined style={{ color: '#F97316' }} />
+                        </div>
+                        <h4>路线规划</h4>
+                        <p>智能生成个性化旅行路线</p>
+                    </div>
+                    <div className="home-card">
+                        <div className="home-card-icon" style={{ background: '#FDF4FF' }}>
+                            <EnvironmentOutlined style={{ color: '#A855F7' }} />
+                        </div>
+                        <h4>附近发现</h4>
+                        <p>探索周边热门地点与活动</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
-        useEffect(() => {
-            fetch('/api/preferences/tags.php?tier=quick').then(r => r.json()).then(d => {
-                if (d.success) setPrefInfo({ selected: d.selected_count || 0 });
-            }).catch(() => {});
-        }, []);
+    // ==================== AI Tab ====================
+    function AITab() {
+        return (
+            <div className="ai-content">
+                <div className="ai-placeholder">
+                    <span className="ai-badge">即将上线</span>
+                    <div className="ai-placeholder-icon">
+                        <RobotOutlined style={{ color: 'var(--primary)', fontSize: 40 }} />
+                    </div>
+                    <h3>AI 智能助手</h3>
+                    <p>基于你的旅游偏好，AI 将为你提供个性化的目的地推荐、行程规划和旅行建议。</p>
+                </div>
+            </div>
+        );
+    }
 
+    // ==================== Profile Tab ====================
+    function ProfileTab({ user, onLogout, onGoPrefs }) {
         async function handleLogout() { await fetch('/api/logout.php'); onLogout(); }
+        return (
+            <div className="profile-content">
+                <div className="profile-avatar-section">
+                    <div className="profile-avatar">{user.username[0].toUpperCase()}</div>
+                    <div className="profile-name">{user.username}</div>
+                    <div className="profile-email">{user.email}</div>
+                </div>
+                <div className="profile-menu">
+                    <div className="profile-menu-item" onClick={onGoPrefs}>
+                        <div className="profile-menu-icon" style={{ background: '#EEF4FF' }}>
+                            <HeartFilled style={{ color: 'var(--primary)', fontSize: 18 }} />
+                        </div>
+                        <div className="profile-menu-text">
+                            <h4>旅游偏好设置</h4>
+                            <p>管理你的旅行风格与兴趣标签</p>
+                        </div>
+                        <RightOutlined className="profile-menu-arrow" />
+                    </div>
+                    <div className="profile-menu-item">
+                        <div className="profile-menu-icon" style={{ background: '#F0FDF9' }}>
+                            <BellOutlined style={{ color: 'var(--accent)', fontSize: 18 }} />
+                        </div>
+                        <div className="profile-menu-text">
+                            <h4>消息通知</h4>
+                            <p>管理推送与提醒设置</p>
+                        </div>
+                        <RightOutlined className="profile-menu-arrow" />
+                    </div>
+                    <div className="profile-menu-item">
+                        <div className="profile-menu-icon" style={{ background: '#FFF7ED' }}>
+                            <SettingOutlined style={{ color: '#F97316', fontSize: 18 }} />
+                        </div>
+                        <div className="profile-menu-text">
+                            <h4>账号设置</h4>
+                            <p>修改密码与账号信息</p>
+                        </div>
+                        <RightOutlined className="profile-menu-arrow" />
+                    </div>
+                    <div className="profile-menu-item">
+                        <div className="profile-menu-icon" style={{ background: '#F5F5F5' }}>
+                            <QuestionCircleOutlined style={{ color: '#8C93A3', fontSize: 18 }} />
+                        </div>
+                        <div className="profile-menu-text">
+                            <h4>帮助与反馈</h4>
+                            <p>常见问题与意见反馈</p>
+                        </div>
+                        <RightOutlined className="profile-menu-arrow" />
+                    </div>
+                </div>
+                <div className="profile-logout">
+                    <div className="profile-menu-item" onClick={handleLogout}>
+                        <div className="profile-menu-icon" style={{ background: '#FFF1F0' }}>
+                            <LogoutOutlined style={{ color: '#DE345D', fontSize: 18 }} />
+                        </div>
+                        <div className="profile-menu-text">
+                            <h4 style={{ color: '#DE345D' }}>退出登录</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
-        const menuItems = [
-            { key: 'email', icon: <CheckCircleFilled style={{ color: '#10B981' }} />, label: <span style={{ fontSize: 13 }}>{user.email}</span> },
-            { type: 'divider' },
-            { key: 'prefs', icon: <HeartFilled style={{ color: '#F43F5E' }} />, label: '旅游偏好' },
-            { type: 'divider' },
-            { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', danger: true },
-        ];
-        const handleMenu = ({ key }) => { if (key === 'logout') handleLogout(); if (key === 'prefs') onPreferences(); };
+    // ==================== App Shell (logged in) ====================
+    function AppShell({ user, onLogout }) {
+        const [activeTab, setActiveTab] = useState('home');
+        const [showPrefs, setShowPrefs] = useState(false);
+
+        if (showPrefs) return <PreferencePage user={user} onBack={() => setShowPrefs(false)} />;
 
         return (
-            <div className="dashboard-page">
-                <div className="dashboard-header">
-                    <div className="dash-brand">
-                        <div className="dash-logo-icon"><EnvironmentOutlined style={{ color: '#FFF', fontSize: 20 }} /></div>
-                        <span className="dash-title">UMap</span>
+            <div className="app-shell">
+                <div className="app-header">
+                    <div className="app-header-brand">
+                        <div className="app-header-logo">
+                            <img src="/img/logo.jpg" alt="UMap" />
+                        </div>
+                        <span className="app-header-title">UMap</span>
                     </div>
-                    <Dropdown menu={{ items: menuItems, onClick: handleMenu }} placement="bottomRight">
-                        <Space style={{ cursor: 'pointer', padding: '6px 12px', borderRadius: 12, transition: 'background 200ms' }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                            <Avatar size={36} style={{ background: 'linear-gradient(135deg, #6CB3FF 0%, #5EEADB 100%)', fontWeight: 700, fontSize: 15 }}>
-                                {user.username[0].toUpperCase()}
-                            </Avatar>
-                            <span style={{ color: 'rgba(255,255,255,0.92)', fontWeight: 500, fontSize: 14 }}>{user.username}</span>
-                        </Space>
-                    </Dropdown>
+                    <div className="app-header-user" onClick={() => setActiveTab('profile')}>
+                        <Avatar size={32} style={{ background: 'linear-gradient(135deg, #6CB3FF 0%, #5EEADB 100%)', fontWeight: 700, fontSize: 13 }}>
+                            {user.username[0].toUpperCase()}
+                        </Avatar>
+                        <span style={{ color: 'rgba(255,255,255,0.9)', fontWeight: 500, fontSize: 13 }}>{user.username}</span>
+                    </div>
                 </div>
-                <div className="dash-content">
-                    <Card className="welcome-card">
-                        <Result
-                            icon={
-                                <div style={{ width: 80, height: 80, borderRadius: 22, background: 'linear-gradient(135deg, #EBF3FF 0%, #E6F5F4 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto' }}>
-                                    <EnvironmentOutlined style={{ fontSize: 40, color: TOKEN.primary }} />
-                                </div>
-                            }
-                            title={<span style={{ fontFamily: 'var(--font-heading)', fontWeight: 700, fontSize: 24 }}>欢迎回来，{user.username}！</span>}
-                            subTitle={<span style={{ fontSize: 15 }}>你已成功登录 UMap。{prefInfo && prefInfo.selected > 0 ? `已选择 ${prefInfo.selected} 个旅游偏好标签。` : '快来设置你的旅游偏好吧！'}</span>}
-                            extra={[
-                                <Button key="prefs" type="primary" size="large" icon={<HeartFilled />}
-                                    onClick={onPreferences} style={{ borderRadius: 10, fontWeight: 600, height: 46 }}>
-                                    {prefInfo && prefInfo.selected > 0 ? '管理旅游偏好' : '设置旅游偏好'}
-                                </Button>,
-                                <Button key="logout" onClick={handleLogout} size="large" style={{ borderRadius: 10, fontWeight: 500 }}>退出登录</Button>,
-                            ]}
-                        />
-                    </Card>
+
+                <div className="app-content">
+                    {activeTab === 'home' && <HomeTab user={user} onGoPrefs={() => setShowPrefs(true)} />}
+                    {activeTab === 'ai' && <AITab />}
+                    {activeTab === 'profile' && <ProfileTab user={user} onLogout={onLogout} onGoPrefs={() => setShowPrefs(true)} />}
+                </div>
+
+                <div className="bottom-tab-bar">
+                    <button className={`bottom-tab${activeTab === 'home' ? ' active' : ''}`} onClick={() => setActiveTab('home')}>
+                        <span className="tab-icon"><HomeOutlined /></span>
+                        <span className="tab-label">首页</span>
+                    </button>
+                    <button className={`bottom-tab${activeTab === 'ai' ? ' active' : ''}`} onClick={() => setActiveTab('ai')}>
+                        <span className="tab-icon"><RobotOutlined /></span>
+                        <span className="tab-label">AI</span>
+                    </button>
+                    <button className={`bottom-tab${activeTab === 'profile' ? ' active' : ''}`} onClick={() => setActiveTab('profile')}>
+                        <span className="tab-icon"><UserOutlined /></span>
+                        <span className="tab-label">我的</span>
+                    </button>
                 </div>
             </div>
         );
@@ -601,7 +775,6 @@
         const [activeTab, setActiveTab] = useState('login');
         const [user, setUser] = useState(null);
         const [checking, setChecking] = useState(true);
-        const [showPrefs, setShowPrefs] = useState(false);
 
         useEffect(() => {
             const params = new URLSearchParams(window.location.search);
@@ -613,9 +786,7 @@
 
         if (checking) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F5F7FA', fontFamily: 'var(--font-body)', fontSize: 16, color: TOKEN.primary }}>加载中...</div>;
 
-        if (user && showPrefs) return <PreferencePage user={user} onBack={() => setShowPrefs(false)} />;
-
-        if (user) return <Dashboard user={user} onLogout={() => setUser(null)} onPreferences={() => setShowPrefs(true)} />;
+        if (user) return <AppShell user={user} onLogout={() => setUser(null)} />;
 
         return (
             <div className="auth-page">
