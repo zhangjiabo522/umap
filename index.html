@@ -1394,13 +1394,17 @@
                         </div>
                         );
                     })}
-                    {loading && (
-                        <div className="ai-msg ai-msg-ai">
-                            <div className="ai-msg-bubble">
-                                <div className="ai-status">{statusText || '正在思考...'}</div>
+                    {loading && (() => {
+                        const lastAi = [...messages].reverse().find(m => m.role === 'ai');
+                        if (lastAi && (lastAi.content || lastAi.think)) return null;
+                        return (
+                            <div className="ai-msg ai-msg-ai">
+                                <div className="ai-msg-bubble">
+                                    <div className="ai-status">{statusText || '正在思考...'}</div>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
                     <div ref={chatEndRef} />
                 </div>
 
