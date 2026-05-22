@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git init *)",
+      "Bash(git config *)",
+      "Bash(git remote *)",
+      "Bash(git -C /www/wwwroot/umap.online status)",
+      "Bash(ssh-keygen *)",
+      "Bash(ssh *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Read(//www/server/php/**)",
+      "Read(//www/server/**)",
+      "Bash(/www/server/php/*/bin/php -v)",
+      "Bash(apt list *)",
+      "Bash(apt-get update *)",
+      "Bash(apt-get install *)",
+      "Bash(php -v)",
+      "Bash(php -m)",
+      "Bash(php *)",
+      "Read(//etc/nginx/**)",
+      "Read(//etc/nginx/sites-enabled/**)",
+      "Read(//tmp/**)",
+      "Bash(systemctl status *)",
+      "Bash(systemctl start *)",
+      "Bash(/www/server/nginx/sbin/nginx -t)",
+      "Bash(/www/server/nginx/sbin/nginx -s reload)",
+      "Bash(curl -sk https://umap.online/test_php.php)",
+      "Read(//run/php/**)",
+      "Read(//etc/php/8.1/fpm/pool.d/**)",
+      "Bash(systemctl restart *)",
+      "Bash(curl -sS https://getcomposer.org/installer)",
+      "Bash(git rm *)"
+    ]
+  }
+}

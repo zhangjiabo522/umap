@@ -1,0 +1,6 @@
+/includes/vendor/
+/includes/composer.lock
+/includes/composer.phar
+.claude/
+.env
+*.log

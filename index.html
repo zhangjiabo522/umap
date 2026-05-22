@@ -1,39 +1,348 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
-    <meta charset="utf-8">
-    <title>恭喜，站点创建成功！</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UMap - 你的地图</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/antd@5.12.8/dist/reset.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/antd@5.12.8/dist/antd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.6/babel.min.js"></script>
+    <script src="https://recaptcha.google.cn/recaptcha/api.js?render=explicit" async defer></script>
     <style>
-        .container {
-            width: 60%;
-            margin: 10% auto 0;
-            background-color: #f0f0f0;
-            padding: 2% 5%;
-            border-radius: 10px
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+        .auth-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
         }
-
-        ul {
-            padding-left: 20px;
+        .auth-card {
+            width: 100%;
+            max-width: 420px;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
-
-            ul li {
-                line-height: 2.3
-            }
-
-        a {
-            color: #20a53a
+        .auth-header {
+            text-align: center;
+            padding: 24px 0 8px;
+        }
+        .auth-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 4px;
+        }
+        .auth-header p {
+            color: #666;
+            font-size: 14px;
+        }
+        .g-recaptcha { margin: 0 auto; display: flex; justify-content: center; }
+        .dashboard-container {
+            min-height: 100vh;
+            background: #f0f2f5;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>恭喜, 站点创建成功！</h1>
-        <h3>这是默认index.html，本页面由系统自动生成</h3>
-        <ul>
-            <li>本页面在FTP根目录下的index.html</li>
-            <li>您可以修改、删除或覆盖本页面</li>
-            <li>FTP相关信息，请到“面板系统后台 > FTP” 查看</li>
-        </ul>
-    </div>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+        const { Form, Input, Button, Card, message, Tabs, Typography, Space, Avatar, Dropdown, Layout, Menu, Result } = antd;
+        const { UserOutlined, LockOutlined, MailOutlined, SafetyOutlined, LogoutOutlined, EnvironmentOutlined } = antd.icons;
+
+        const RECAPTCHA_SITE_KEY = '6LeBLvcsAAAAAANaL5q8z4tVmVu1QPbrzarCBeoi';
+
+        function RecaptchaWidget({ onVerify, resetKey }) {
+            const containerRef = useRef(null);
+            const widgetIdRef = useRef(null);
+
+            useEffect(() => {
+                if (!window.grecaptcha || !window.grecaptcha.render) {
+                    const timer = setInterval(() => {
+                        if (window.grecaptcha && window.grecaptcha.render) {
+                            clearInterval(timer);
+                            renderWidget();
+                        }
+                    }, 200);
+                    return () => clearInterval(timer);
+                }
+                renderWidget();
+            }, []);
+
+            useEffect(() => {
+                if (resetKey > 0 && widgetIdRef.current !== null && window.grecaptcha) {
+                    try { window.grecaptcha.reset(widgetIdRef.current); } catch(e) {}
+                }
+            }, [resetKey]);
+
+            function renderWidget() {
+                if (containerRef.current && window.grecaptcha && window.grecaptcha.render) {
+                    try {
+                        widgetIdRef.current = window.grecaptcha.render(containerRef.current, {
+                            sitekey: RECAPTCHA_SITE_KEY,
+                            callback: onVerify,
+                            theme: 'light',
+                        });
+                    } catch(e) {}
+                }
+            }
+
+            return <div ref={containerRef} className="g-recaptcha" style={{ minHeight: 78 }}></div>;
+        }
+
+        function RegisterForm({ onSuccess }) {
+            const [form] = Form.useForm();
+            const [loading, setLoading] = useState(false);
+            const [recaptchaToken, setRecaptchaToken] = useState('');
+            const [resetKey, setResetKey] = useState(0);
+
+            async function handleSubmit(values) {
+                if (!recaptchaToken) {
+                    message.warning('请完成人机验证');
+                    return;
+                }
+                setLoading(true);
+                try {
+                    const res = await fetch('/api/register.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            username: values.username,
+                            email: values.email,
+                            password: values.password,
+                            recaptcha_token: recaptchaToken,
+                        }),
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        message.success(data.message);
+                        form.resetFields();
+                        setRecaptchaToken('');
+                        setResetKey(k => k + 1);
+                        onSuccess();
+                    } else {
+                        message.error(data.message);
+                        setRecaptchaToken('');
+                        setResetKey(k => k + 1);
+                    }
+                } catch (e) {
+                    message.error('网络错误，请稍后重试');
+                    setRecaptchaToken('');
+                    setResetKey(k => k + 1);
+                } finally {
+                    setLoading(false);
+                }
+            }
+
+            return (
+                <Form form={form} onFinish={handleSubmit} size="large" layout="vertical">
+                    <Form.Item name="username" rules={[
+                        { required: true, message: '请输入用户名' },
+                        { min: 3, max: 50, message: '用户名长度3-50个字符' },
+                        { pattern: /^[a-zA-Z0-9_一-龥]+$/, message: '用户名只能包含字母、数字、下划线和中文' }
+                    ]}>
+                        <Input prefix={<UserOutlined />} placeholder="用户名" />
+                    </Form.Item>
+                    <Form.Item name="email" rules={[
+                        { required: true, message: '请输入邮箱' },
+                        { type: 'email', message: '请输入有效的邮箱地址' }
+                    ]}>
+                        <Input prefix={<MailOutlined />} placeholder="电子邮箱" />
+                    </Form.Item>
+                    <Form.Item name="password" rules={[
+                        { required: true, message: '请输入密码' },
+                        { min: 8, message: '密码长度至少8个字符' }
+                    ]}>
+                        <Input.Password prefix={<LockOutlined />} placeholder="密码（至少8位）" />
+                    </Form.Item>
+                    <Form.Item name="confirmPassword" dependencies={['password']} rules={[
+                        { required: true, message: '请确认密码' },
+                        ({ getFieldValue }) => ({
+                            validator(_, value) {
+                                if (!value || getFieldValue('password') === value) return Promise.resolve();
+                                return Promise.reject(new Error('两次密码不一致'));
+                            }
+                        })
+                    ]}>
+                        <Input.Password prefix={<LockOutlined />} placeholder="确认密码" />
+                    </Form.Item>
+                    <Form.Item>
+                        <RecaptchaWidget onVerify={setRecaptchaToken} resetKey={resetKey} />
+                    </Form.Item>
+                    <Form.Item>
+                        <Button type="primary" htmlType="submit" block loading={loading}
+                            style={{ height: 44, borderRadius: 8, fontSize: 16, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', border: 'none' }}>
+                            注册
+                        </Button>
+                    </Form.Item>
+                </Form>
+            );
+        }
+
+        function LoginForm({ onLogin }) {
+            const [form] = Form.useForm();
+            const [loading, setLoading] = useState(false);
+            const [recaptchaToken, setRecaptchaToken] = useState('');
+            const [resetKey, setResetKey] = useState(0);
+
+            async function handleSubmit(values) {
+                if (!recaptchaToken) {
+                    message.warning('请完成人机验证');
+                    return;
+                }
+                setLoading(true);
+                try {
+                    const res = await fetch('/api/login.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            account: values.account,
+                            password: values.password,
+                            recaptcha_token: recaptchaToken,
+                        }),
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        message.success(data.message);
+                        onLogin(data.user);
+                    } else {
+                        message.error(data.message);
+                        setRecaptchaToken('');
+                        setResetKey(k => k + 1);
+                    }
+                } catch (e) {
+                    message.error('网络错误，请稍后重试');
+                    setRecaptchaToken('');
+                    setResetKey(k => k + 1);
+                } finally {
+                    setLoading(false);
+                }
+            }
+
+            return (
+                <Form form={form} onFinish={handleSubmit} size="large" layout="vertical">
+                    <Form.Item name="account" rules={[{ required: true, message: '请输入用户名或邮箱' }]}>
+                        <Input prefix={<UserOutlined />} placeholder="用户名或邮箱" />
+                    </Form.Item>
+                    <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
+                        <Input.Password prefix={<LockOutlined />} placeholder="密码" />
+                    </Form.Item>
+                    <Form.Item>
+                        <RecaptchaWidget onVerify={setRecaptchaToken} resetKey={resetKey} />
+                    </Form.Item>
+                    <Form.Item>
+                        <Button type="primary" htmlType="submit" block loading={loading}
+                            style={{ height: 44, borderRadius: 8, fontSize: 16, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', border: 'none' }}>
+                            登录
+                        </Button>
+                    </Form.Item>
+                </Form>
+            );
+        }
+
+        function Dashboard({ user, onLogout }) {
+            async function handleLogout() {
+                await fetch('/api/logout.php');
+                onLogout();
+            }
+
+            const items = [
+                { key: 'user', label: user.username, icon: <UserOutlined />, children: [
+                    { key: 'email', label: user.email },
+                ]},
+            ];
+
+            const userMenu = {
+                items: [{ key: 'logout', icon: <LogoutOutlined />, label: '退出登录', danger: true }],
+                onClick: ({ key }) => { if (key === 'logout') handleLogout(); }
+            };
+
+            return (
+                <div className="dashboard-container">
+                    <Layout.Header style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                        <Space>
+                            <EnvironmentOutlined style={{ fontSize: 24, color: '#667eea' }} />
+                            <Typography.Text strong style={{ fontSize: 18 }}>UMap</Typography.Text>
+                        </Space>
+                        <Dropdown menu={userMenu} placement="bottomRight">
+                            <Space style={{ cursor: 'pointer' }}>
+                                <Avatar style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+                                    {user.username[0].toUpperCase()}
+                                </Avatar>
+                                <Typography.Text>{user.username}</Typography.Text>
+                            </Space>
+                        </Dropdown>
+                    </Layout.Header>
+                    <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
+                        <Card>
+                            <Result
+                                icon={<EnvironmentOutlined style={{ color: '#667eea' }} />}
+                                title={`欢迎回来，${user.username}！`}
+                                subTitle="您已成功登录 UMap，地图功能即将上线。"
+                                extra={[
+                                    <Button key="logout" onClick={handleLogout}>退出登录</Button>
+                                ]}
+                            />
+                        </Card>
+                    </div>
+                </div>
+            );
+        }
+
+        function AuthPage() {
+            const [activeTab, setActiveTab] = useState('login');
+            const [user, setUser] = useState(null);
+            const [checking, setChecking] = useState(true);
+
+            useEffect(() => {
+                const params = new URLSearchParams(window.location.search);
+                if (params.get('verified') === 'success') {
+                    message.success('邮箱验证成功，请登录');
+                    window.history.replaceState({}, '', '/');
+                } else if (params.get('verified') === 'already') {
+                    message.info('邮箱已验证，请直接登录');
+                    window.history.replaceState({}, '', '/');
+                }
+
+                fetch('/api/user.php').then(r => r.json()).then(data => {
+                    if (data.success) setUser(data.user);
+                }).finally(() => setChecking(false));
+            }, []);
+
+            if (checking) {
+                return <div className="auth-container" style={{ color: '#fff', fontSize: 18 }}>加载中...</div>;
+            }
+
+            if (user) {
+                return <Dashboard user={user} onLogout={() => setUser(null)} />;
+            }
+
+            return (
+                <div className="auth-container">
+                    <Card className="auth-card" bordered={false}>
+                        <div className="auth-header">
+                            <h1>UMap</h1>
+                            <p>你的地图</p>
+                        </div>
+                        <Tabs activeKey={activeTab} onChange={setActiveTab} centered items={[
+                            { key: 'login', label: '登录', children: <LoginForm onLogin={setUser} /> },
+                            { key: 'register', label: '注册', children: <RegisterForm onSuccess={() => setActiveTab('login')} /> },
+                        ]} />
+                    </Card>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<AuthPage />);
+    </script>
 </body>
 </html>
