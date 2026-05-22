@@ -4,9 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>UMap - 你的地图</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400;1,9..40,500&family=Space+Grotesk:wght@600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://puhuiti.oss-cn-hangzhou.aliyuncs.com">
+    <style>
+        @font-face { font-family: 'AlibabaPuHuiTi'; src: url('https://puhuiti.oss-cn-hangzhou.aliyuncs.com/AlibabaPuHuiTi-2/AlibabaPuHuiTi-2-55-Regular/AlibabaPuHuiTi-2-55-Regular.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+        @font-face { font-family: 'AlibabaPuHuiTi'; src: url('https://puhuiti.oss-cn-hangzhou.aliyuncs.com/AlibabaPuHuiTi-2/AlibabaPuHuiTi-2-65-Medium/AlibabaPuHuiTi-2-65-Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+        @font-face { font-family: 'AlibabaPuHuiTi'; src: url('https://puhuiti.oss-cn-hangzhou.aliyuncs.com/AlibabaPuHuiTi-2/AlibabaPuHuiTi-2-75-SemiBold/AlibabaPuHuiTi-2-75-SemiBold.woff2') format('woff2'); font-weight: 600; font-style: normal; font-display: swap; }
+        @font-face { font-family: 'AlibabaPuHuiTi'; src: url('https://puhuiti.oss-cn-hangzhou.aliyuncs.com/AlibabaPuHuiTi-2/AlibabaPuHuiTi-2-85-Bold/AlibabaPuHuiTi-2-85-Bold.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
+        @font-face { font-family: 'AlibabaPuHuiTi'; src: url('https://puhuiti.oss-cn-hangzhou.aliyuncs.com/AlibabaPuHuiTi-2/AlibabaPuHuiTi-2-95-ExtraBold/AlibabaPuHuiTi-2-95-ExtraBold.woff2') format('woff2'); font-weight: 800; font-style: normal; font-display: swap; }
+    </style>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/antd@5.12.8/dist/reset.min.css">
     <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
@@ -38,14 +43,14 @@
             --radius-sm: 10px; --radius-md: 16px; --radius-lg: 20px;
             --shadow-card: 0 8px 40px rgba(15,20,55,0.12);
             --shadow-elevated: 0 16px 64px rgba(15,20,55,0.18);
-            --font-heading: 'Syne', -apple-system, sans-serif;
-            --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-            --font-display: 'Space Grotesk', 'Syne', -apple-system, sans-serif;
+            --font-heading: 'AlibabaPuHuiTi', -apple-system, PingFang SC, Microsoft YaHei, sans-serif;
+            --font-body: 'AlibabaPuHuiTi', -apple-system, PingFang SC, Microsoft YaHei, sans-serif;
+            --font-display: 'AlibabaPuHuiTi', -apple-system, PingFang SC, Microsoft YaHei, sans-serif;
             --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
         }
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
-        body { font-family: var(--font-body); font-size: 15px; font-weight: 450; line-height: 1.6; color: var(--text-primary); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; font-optical-sizing: auto; background: linear-gradient(160deg, #0F1E3D 0%, #15305A 50%, #0A1628 100%) fixed; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+        body { font-family: var(--font-body); font-size: 15px; font-weight: 400; line-height: 1.6; color: var(--text-primary); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; background: linear-gradient(160deg, #0F1E3D 0%, #15305A 50%, #0A1628 100%) fixed; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
         input, button, select, textarea { font-family: var(--font-body); }
         .ant-input, .ant-input-affix-wrapper input, .ant-btn, .ant-btn span,
         .ant-select-selector, .ant-form-item-label > label, .ant-form-item-explain,
