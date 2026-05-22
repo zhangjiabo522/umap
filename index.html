@@ -265,6 +265,12 @@
         .attraction-action-btn:hover { background: #EEF4FF; color: var(--primary); }
         .attraction-action-btn.favorited { background: #FFFBEB; color: #F59E0B; }
         .attraction-action-btn.nav-btn { background: #EEF4FF; color: var(--primary); }
+        .attraction-feedback-menu { position: relative; }
+        .feedback-popover { position: absolute; top: 38px; right: 0; background: #fff; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 24px rgba(15,20,55,0.16); padding: 6px; z-index: 20; min-width: 92px; }
+        .feedback-option { width: 100%; border: none; background: transparent; padding: 8px 10px; border-radius: 8px; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-primary); cursor: pointer; font-family: var(--font-body); }
+        .feedback-option:hover { background: #F5F7FA; }
+        .feedback-option.like { color: #16A34A; }
+        .feedback-option.dislike { color: #DC2626; }
         .attraction-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 10px; }
         .attraction-tags { display: flex; flex-wrap: wrap; gap: 6px; }
         .attraction-tag { padding: 3px 10px; background: #EEF4FF; color: var(--primary); border-radius: 999px; font-size: 11px; font-weight: 500; }
@@ -367,7 +373,7 @@
         CloseOutlined, ArrowLeftOutlined, SaveOutlined, InfoCircleFilled, WarningFilled,
         LoadingOutlined, StarFilled, DeleteOutlined, HomeOutlined, RobotOutlined,
         RightOutlined, SettingOutlined, BellOutlined, QuestionCircleOutlined, AimOutlined,
-        SearchOutlined, CompassOutlined
+        SearchOutlined, CompassOutlined, EllipsisOutlined, LikeOutlined, DislikeOutlined
     } = icons;
 
     const RECAPTCHA_SITE_KEY = '6LeBLvcsAAAAAANaL5q8z4tVmVu1QPbrzarCBeoi';
@@ -1089,6 +1095,16 @@
                         </div>
                         <RightOutlined className="profile-menu-arrow" />
                     </div>
+                    <div className="profile-menu-item" onClick={() => onNavigate('dislikes')}>
+                        <div className="profile-menu-icon" style={{ background: '#FEF2F2' }}>
+                            <DislikeOutlined style={{ color: '#DC2626', fontSize: 18 }} />
+                        </div>
+                        <div className="profile-menu-text">
+                            <h4>管理我的踩</h4>
+                            <p>这些记录只用于用户画像和后续 AI 推荐</p>
+                        </div>
+                        <RightOutlined className="profile-menu-arrow" />
+                    </div>
                     <div className="profile-menu-item" onClick={() => onNavigate('account')}>
                         <div className="profile-menu-icon" style={{ background: '#FFF7ED' }}>
                             <SettingOutlined style={{ color: '#F97316', fontSize: 18 }} />
@@ -1197,6 +1213,83 @@
                                             {a.confidence !== null && a.confidence !== undefined && <span className="attraction-confidence">匹配度 {Math.round(Number(a.confidence) * 100)}%</span>}
                                         </div>
                                         <button className="attraction-action-btn favorited" onClick={e => removeFavorite(e, a.name)} aria-label="取消收藏"><StarFilled /></button>
+                                    </div>
+                                    {a.description && <div className="attraction-desc">{a.description}</div>}
+                                    {a.address && <div className="attraction-addr"><EnvironmentOutlined style={{marginRight:4,fontSize:11}}/>{a.address}</div>}
+                                    {a.tags && a.tags.length > 0 && (
+                                        <div className="attraction-tags">
+                                            {a.tags.slice(0, 4).map((t, j) => <span key={j} className="attraction-tag">{t}</span>)}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // ==================== Dislikes Page ====================
+    function DislikesPage({ onBack }) {
+        const [items, setItems] = useState([]);
+        const [loading, setLoading] = useState(true);
+
+        useEffect(() => { loadDislikes(); }, []);
+
+        async function loadDislikes() {
+            setLoading(true);
+            try {
+                const res = await fetch('/api/attraction_feedback.php?type=dislike');
+                const data = await res.json();
+                if (data.success) setItems(data.items || []);
+                else message.error(data.message || '获取记录失败');
+            } catch { message.error('网络错误，请重试'); }
+            setLoading(false);
+        }
+
+        async function removeDislike(e, name) {
+            e.stopPropagation();
+            try {
+                const res = await fetch('/api/attraction_feedback.php', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name }),
+                });
+                const data = await res.json();
+                if (data.success) setItems(prev => prev.filter(i => i.name !== name));
+                else message.error(data.message || '删除失败');
+            } catch { message.error('网络错误，请重试'); }
+        }
+
+        return (
+            <div className="sub-page">
+                <div className="sub-page-header">
+                    <button className="sub-page-back" onClick={onBack}><ArrowLeftOutlined /></button>
+                    <span className="sub-page-title">管理我的踩</span>
+                </div>
+                <div className="sub-page-content">
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>这些记录只用于用户画像和后续 AI 推荐，不会公开展示。</div>
+                    {loading ? (
+                        <div className="sub-empty">
+                            <div className="sub-empty-icon"><LoadingOutlined /></div>
+                            <h3>正在加载记录</h3>
+                        </div>
+                    ) : items.length === 0 ? (
+                        <div className="sub-empty">
+                            <div className="sub-empty-icon"><DislikeOutlined /></div>
+                            <h3>暂无踩过的景点</h3>
+                            <p>你踩过的景点会帮助 AI 避免推荐类似地点</p>
+                        </div>
+                    ) : (
+                        <div>
+                            {items.map(a => (
+                                <div key={a.id} className="attraction-card">
+                                    <div className="attraction-card-header">
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <span className="attraction-name">{a.name}</span>
+                                        </div>
+                                        <button className="attraction-action-btn" onClick={e => removeDislike(e, a.name)} aria-label="删除"><DeleteOutlined /></button>
                                     </div>
                                     {a.description && <div className="attraction-desc">{a.description}</div>}
                                     {a.address && <div className="attraction-addr"><EnvironmentOutlined style={{marginRight:4,fontSize:11}}/>{a.address}</div>}
@@ -1379,6 +1472,8 @@
         const [attractions, setAttractions] = useState([]);
         const [searched, setSearched] = useState(false);
         const [favorites, setFavorites] = useState(new Set());
+        const [feedbackMenu, setFeedbackMenu] = useState(null);
+        const [feedbacks, setFeedbacks] = useState({});
         const [stepStates, setStepStates] = useState({ 1: 'pending', 2: 'pending' });
         const [stepDetails, setStepDetails] = useState({ 1: '', 2: '' });
         const [hasMore, setHasMore] = useState(false);
@@ -1390,6 +1485,7 @@
         useEffect(() => {
             if (inputRef.current) inputRef.current.focus();
             loadFavoriteNames();
+            loadFeedbacks();
             if (initialCity && initialCity.trim()) doSearch(initialCity.trim(), 1);
         }, []);
 
@@ -1398,6 +1494,18 @@
                 const res = await fetch('/api/favorites.php');
                 const data = await res.json();
                 if (data.success) setFavorites(new Set((data.favorites || []).map(i => i.name)));
+            } catch {}
+        }
+
+        async function loadFeedbacks() {
+            try {
+                const res = await fetch('/api/attraction_feedback.php');
+                const data = await res.json();
+                if (data.success) {
+                    const map = {};
+                    (data.items || []).forEach(i => { map[i.name] = i.feedback_type; });
+                    setFeedbacks(map);
+                }
             } catch {}
         }
 
@@ -1504,6 +1612,22 @@
             } catch { message.error('网络错误，请重试'); }
         }
 
+        async function submitFeedback(e, attraction, type) {
+            e.stopPropagation();
+            setFeedbackMenu(null);
+            try {
+                const res = await fetch('/api/attraction_feedback.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...attraction, city: currentCityRef.current || city, type }),
+                });
+                const data = await res.json();
+                if (!data.success) { message.error(data.message || '操作失败'); return; }
+                setFeedbacks(prev => ({ ...prev, [attraction.name]: type }));
+                message.success(type === 'like' ? '已点赞，会用于后续推荐' : '已踩，以后会减少类似推荐');
+            } catch { message.error('网络错误，请重试'); }
+        }
+
         function navigate(e, a) {
             e.stopPropagation();
             const name = a.name;
@@ -1604,6 +1728,17 @@
                                             <button className="attraction-action-btn nav-btn" onClick={e => navigate(e, a)} aria-label="导航">
                                                 <CompassOutlined />
                                             </button>
+                                            <div className="attraction-feedback-menu">
+                                                <button className="attraction-action-btn" onClick={e => { e.stopPropagation(); setFeedbackMenu(feedbackMenu === a.name ? null : a.name); }} aria-label="更多">
+                                                    <EllipsisOutlined />
+                                                </button>
+                                                {feedbackMenu === a.name && (
+                                                    <div className="feedback-popover" onClick={e => e.stopPropagation()}>
+                                                        <button className="feedback-option like" onClick={e => submitFeedback(e, a, 'like')}><LikeOutlined />点赞{feedbacks[a.name] === 'like' ? ' ✓' : ''}</button>
+                                                        <button className="feedback-option dislike" onClick={e => submitFeedback(e, a, 'dislike')}><DislikeOutlined />踩{feedbacks[a.name] === 'dislike' ? ' ✓' : ''}</button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     {a.description && <div className="attraction-desc">{a.description}</div>}
@@ -1641,6 +1776,7 @@
 
         if (showPrefs) return <PreferencePage user={user} onBack={() => setShowPrefs(false)} />;
         if (subPage === 'favorites') return <FavoritesPage onBack={() => setSubPage(null)} />;
+        if (subPage === 'dislikes') return <DislikesPage onBack={() => setSubPage(null)} />;
         if (subPage === 'account') return <AccountSettingsPage user={user} onBack={() => setSubPage(null)} />;
         if (subPage === 'help') return <HelpPage onBack={() => setSubPage(null)} />;
         if (subPage === 'citySearch') return <CitySearchPage initialCity={citySearchQuery} onBack={() => { setSubPage(null); setCitySearchQuery(''); }} />;
