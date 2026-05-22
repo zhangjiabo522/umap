@@ -227,6 +227,19 @@
         .ai-search-title { font-size: 13px; font-weight: 600; color: var(--primary); text-decoration: none; display: block; margin-bottom: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .ai-search-snippet { font-size: 12px; color: var(--text-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .ai-search-url { font-size: 11px; color: var(--text-muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ai-location-card { border-radius: 12px; overflow: hidden; background: #fff; border: 1px solid #e8ecf1; margin: 8px 0; }
+        .ai-loc-map { width: 100%; height: 160px; object-fit: cover; background: #f0f4f8; display: block; }
+        .ai-loc-map-placeholder { width: 100%; height: 160px; background: linear-gradient(135deg, #e8ecf1 0%, #d5dbe3 100%); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px; }
+        .ai-loc-info { padding: 10px 12px; }
+        .ai-loc-name { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+        .ai-loc-addr { font-size: 12px; color: var(--text-secondary); margin-top: 3px; }
+        .ai-loc-desc { font-size: 13px; color: var(--text-secondary); margin-top: 4px; line-height: 1.5; }
+        .ai-loc-actions { display: flex; gap: 8px; padding: 0 12px 10px; }
+        .ai-loc-btn { flex: 1; height: 36px; border-radius: 18px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 150ms; -webkit-tap-highlight-color: transparent; }
+        .ai-loc-btn-nav { background: var(--primary); color: #fff; }
+        .ai-loc-btn-nav:active { opacity: 0.85; }
+        .ai-loc-btn-fav { background: #f0f4f8; color: var(--text-primary); }
+        .ai-loc-btn-fav.saved { background: rgba(13,148,136,0.1); color: var(--accent); }
         @keyframes ai-bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
         .ai-status { text-align: center; font-size: 12px; color: var(--text-muted); padding: 8px 0; }
         .ai-input-area { flex-shrink: 0; background: var(--surface); border-top: 1px solid rgba(228,231,237,0.7); padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
@@ -450,7 +463,7 @@
     const AntInput = antd.Input;
     const {
         UserOutlined, LockOutlined, MailOutlined, EnvironmentOutlined, LogoutOutlined,
-        CheckCircleFilled, SafetyOutlined, HeartFilled, PlusOutlined,
+        CheckCircleFilled, SafetyOutlined, HeartFilled, HeartOutlined, PlusOutlined,
         CloseOutlined, ArrowLeftOutlined, SaveOutlined, InfoCircleFilled, WarningFilled,
         LoadingOutlined, StarFilled, DeleteOutlined, HomeOutlined, RobotOutlined,
         RightOutlined, SettingOutlined, BellOutlined, QuestionCircleOutlined, AimOutlined,
@@ -1128,6 +1141,8 @@
         const [expandedThinks, setExpandedThinks] = useState({});
         const [expandedSearch, setExpandedSearch] = useState({});
         const [searchEnabled, setSearchEnabled] = useState(false);
+        const [savedLocs, setSavedLocs] = useState({});
+        const [amapKey, setAmapKey] = useState('');
         const [sessionId, setSessionId] = useState(null);
         const [sessionTitle, setSessionTitle] = useState('新对话');
         const [showHistory, setShowHistory] = useState(false);
@@ -1136,14 +1151,28 @@
         const textareaRef = useRef(null);
         const imgInputRef = useRef(null);
 
-        useEffect(() => { loadFavorites(); }, []);
+        useEffect(() => { loadFavorites(); loadAmapKey(); }, []);
         useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
 
         async function loadFavorites() {
             try {
                 const res = await fetch('/api/favorites.php');
                 const data = await res.json();
-                if (data.success) setFavorites(data.favorites || []);
+                if (data.success) {
+                    const favs = data.favorites || [];
+                    setFavorites(favs);
+                    const map = {};
+                    favs.forEach(f => { map[f.name] = true; });
+                    setSavedLocs(map);
+                }
+            } catch {}
+        }
+
+        async function loadAmapKey() {
+            try {
+                const res = await fetch('/api/amap_jsapi_config.php');
+                const data = await res.json();
+                if (data.config?.key) setAmapKey(data.config.key);
             } catch {}
         }
 
@@ -1202,6 +1231,98 @@
         function renderMd(text) {
             try { return { __html: marked.parse(text || '', { breaks: true, gfm: true }) }; }
             catch { return { __html: text }; }
+        }
+
+        function parseContent(text) {
+            if (!text) return [{ type: 'text', value: '' }];
+            const parts = text.split(/```location\s*\n([\s\S]*?)\n```/g);
+            const segments = [];
+            for (let i = 0; i < parts.length; i++) {
+                if (i % 2 === 0) {
+                    if (parts[i] && parts[i].trim()) segments.push({ type: 'text', value: parts[i] });
+                } else {
+                    try {
+                        const loc = JSON.parse(parts[i]);
+                        if (loc.name) segments.push({ type: 'location', value: loc });
+                    } catch { segments.push({ type: 'text', value: '```location\n' + parts[i] + '\n```' }); }
+                }
+            }
+            return segments.length ? segments : [{ type: 'text', value: text }];
+        }
+
+        function LocationCard({ loc }) {
+            const [saving, setSaving] = useState(false);
+            const isSaved = !!savedLocs[loc.name];
+            const hasCoord = loc.location && loc.location.includes(',');
+
+            const mapUrl = hasCoord && amapKey
+                ? `https://restapi.amap.com/v3/staticmap?key=${amapKey}&location=${loc.location}&zoom=15&size=600*300&markers=mid,0xFF0000:${loc.location}`
+                : null;
+
+            const handleSave = async () => {
+                if (saving) return;
+                setSaving(true);
+                try {
+                    const res = await fetch('/api/favorites.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: loc.name,
+                            city: loc.city || '',
+                            address: loc.address || '',
+                            description: loc.desc || '',
+                            location: loc.location || '',
+                        }),
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        setSavedLocs(p => ({ ...p, [loc.name]: true }));
+                        message.success('已收藏');
+                    }
+                } catch { message.error('收藏失败'); }
+                setSaving(false);
+            };
+
+            const handleNav = () => {
+                const name = loc.name;
+                const city = loc.city || '';
+                let appUrl, webUrl;
+                if (hasCoord) {
+                    const [lng, lat] = loc.location.split(',');
+                    appUrl = `amap://navi?sourceApplication=umap&poiname=${encodeURIComponent(name)}&lat=${lat}&lon=${lng}&dev=0&style=2`;
+                    webUrl = `https://uri.amap.com/navigation?to=${lng},${lat},${encodeURIComponent(name)}&mode=car&policy=1&src=umap&coordinate=gaode&callnative=1`;
+                } else {
+                    appUrl = `amap://poi?sourceApplication=umap&keywords=${encodeURIComponent(name)}&city=${encodeURIComponent(city)}`;
+                    webUrl = `https://uri.amap.com/search?query=${encodeURIComponent(name)}&city=${encodeURIComponent(city)}&callnative=1`;
+                }
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = appUrl;
+                document.body.appendChild(iframe);
+                setTimeout(() => { document.body.removeChild(iframe); window.open(webUrl, '_blank'); }, 1200);
+            };
+
+            return (
+                <div className="ai-location-card">
+                    {mapUrl
+                        ? <img className="ai-loc-map" src={mapUrl} alt={loc.name} loading="lazy" />
+                        : <div className="ai-loc-map-placeholder"><EnvironmentOutlined style={{ fontSize: 24, marginRight: 6 }} /> 暂无地图</div>
+                    }
+                    <div className="ai-loc-info">
+                        <div className="ai-loc-name">{loc.name}</div>
+                        {(loc.city || loc.address) && <div className="ai-loc-addr">{[loc.city, loc.address].filter(Boolean).join(' · ')}</div>}
+                        {loc.desc && <div className="ai-loc-desc">{loc.desc}</div>}
+                    </div>
+                    <div className="ai-loc-actions">
+                        <button className={`ai-loc-btn ai-loc-btn-fav${isSaved ? ' saved' : ''}`} onClick={handleSave} disabled={saving}>
+                            {isSaved ? <><HeartFilled /> 已收藏</> : <><HeartOutlined /> 收藏</>}
+                        </button>
+                        <button className="ai-loc-btn ai-loc-btn-nav" onClick={handleNav}>
+                            <CompassOutlined /> 导航
+                        </button>
+                    </div>
+                </div>
+            );
         }
 
         function addFiles(files) {
@@ -1367,8 +1488,10 @@
                                                 {expandedThinks[i] && <div className="ai-think-content">{msg.think}</div>}
                                             </div>
                                         )}
-                                        {msg.content ? <div className="ai-msg-content" dangerouslySetInnerHTML={renderMd(msg.content)} />
-                                            : msg.think ? <div className="ai-status">正在生成回答...</div> : null}
+                                        {msg.content ? parseContent(msg.content).map((seg, si) =>
+                                            seg.type === 'text' ? <div key={si} className="ai-msg-content" dangerouslySetInnerHTML={renderMd(seg.value)} />
+                                            : <LocationCard key={si} loc={seg.value} />
+                                        ) : msg.think ? <div className="ai-status">正在生成回答...</div> : null}
                                         {msg.searchResults && msg.searchResults.length > 0 && (
                                             <div className={`ai-search-results${expandedSearch[i] ? ' expanded' : ''}`}>
                                                 <div className="ai-search-toggle" onClick={() => setExpandedSearch(p => ({ ...p, [i]: !p[i] }))}>
