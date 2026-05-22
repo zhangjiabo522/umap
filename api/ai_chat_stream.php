@@ -37,6 +37,13 @@ try {
     $favorite = parseFavorite($_POST['favorite'] ?? '');
     $attachments = normalizeUploadedFiles($_FILES['attachments'] ?? null);
     $sessionId = intval($_POST['session_id'] ?? 0);
+    $searchResults = trim($_POST['search_results'] ?? '');
+    $searchResultsData = [];
+    $rawJson = $_POST['search_results_json'] ?? '';
+    if ($rawJson !== '') {
+        $decoded = json_decode($rawJson, true);
+        if (is_array($decoded)) $searchResultsData = $decoded;
+    }
 
     if ($message === '' && empty($attachments)) {
         sendEvt('error', ['message' => '请输入问题或上传文件']);
@@ -71,7 +78,7 @@ try {
     // Load conversation history (last 10 rounds)
     $historyMessages = loadHistoryMessages($db, $sessionId, 10);
 
-    $text = buildUserText($message, $favorite, $mediaItems);
+    $text = buildUserText($message, $favorite, $mediaItems, $searchResults);
     $hasImage = false;
     foreach ($mediaItems as $m) { if (($m['type'] ?? '') === 'image_url') { $hasImage = true; break; } }
     $model = $hasImage ? (defined('MIMO_VISION_MODEL') ? MIMO_VISION_MODEL : 'mimo-v2.5') : MIMO_MODEL;
@@ -109,8 +116,9 @@ try {
     }
 
     // Save AI response
-    $stmt = $db->prepare("INSERT INTO ai_chat_messages (session_id, role, content, think) VALUES (?, 'assistant', ?, ?)");
-    $stmt->execute([$sessionId, $fullContent, $fullThink ?: null]);
+    $searchResultsJson = !empty($searchResultsData) ? json_encode($searchResultsData, JSON_UNESCAPED_UNICODE) : null;
+    $stmt = $db->prepare("INSERT INTO ai_chat_messages (session_id, role, content, think, search_results) VALUES (?, 'assistant', ?, ?, ?)");
+    $stmt->execute([$sessionId, $fullContent, $fullThink ?: null, $searchResultsJson]);
 
     // Auto-generate title after first exchange
     $msgCount = $db->prepare("SELECT COUNT(*) FROM ai_chat_messages WHERE session_id = ?");
@@ -342,7 +350,7 @@ function buildSystemPrompt(array $profile): string {
 PROMPT;
 }
 
-function buildUserText(string $message, array $favorite, array $mediaItems): string {
+function buildUserText(string $message, array $favorite, array $mediaItems, string $searchResults = ''): string {
     $text = $message !== '' ? $message : '请分析我上传的内容，并结合我的旅行偏好给出建议。';
     if (!empty($favorite)) {
         $favText = json_encode([
@@ -357,6 +365,9 @@ function buildUserText(string $message, array $favorite, array $mediaItems): str
     }
     if (!empty($mediaItems)) {
         $text .= "\n\n用户同时上传了媒体文件，请结合媒体内容分析。";
+    }
+    if ($searchResults !== '') {
+        $text .= "\n\n以下是从互联网搜索到的实时信息，请结合这些信息回答用户问题：\n{$searchResults}";
     }
     return $text;
 }
@@ -463,6 +474,7 @@ function ensureChatTables(PDO $db): void {
         `think` TEXT DEFAULT NULL,
         `favorite` JSON DEFAULT NULL,
         `attachments` JSON DEFAULT NULL,
+        `search_results` JSON DEFAULT NULL,
         `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         KEY `idx_session_created` (`session_id`, `created_at`),
         CONSTRAINT `fk_acm_session` FOREIGN KEY (`session_id`) REFERENCES `ai_chat_sessions`(`id`) ON DELETE CASCADE

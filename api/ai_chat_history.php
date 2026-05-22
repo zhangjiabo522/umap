@@ -34,6 +34,7 @@ function ensureChatTables(PDO $db): void {
         `think` TEXT DEFAULT NULL,
         `favorite` JSON DEFAULT NULL,
         `attachments` JSON DEFAULT NULL,
+        `search_results` JSON DEFAULT NULL,
         `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         KEY `idx_session_created` (`session_id`, `created_at`),
         CONSTRAINT `fk_acm_session` FOREIGN KEY (`session_id`) REFERENCES `ai_chat_sessions`(`id`) ON DELETE CASCADE
@@ -112,7 +113,7 @@ function handleMessages(PDO $db, int $userId): void {
         jsonResponse(['success' => false, 'message' => '会话不存在'], 404);
     }
 
-    $stmt = $db->prepare("SELECT id, role, content, think, favorite, attachments, created_at FROM ai_chat_messages WHERE session_id = ? ORDER BY created_at ASC");
+    $stmt = $db->prepare("SELECT id, role, content, think, favorite, attachments, search_results, created_at FROM ai_chat_messages WHERE session_id = ? ORDER BY created_at ASC");
     $stmt->execute([$sessionId]);
     $messages = [];
     foreach ($stmt->fetchAll() as $row) {
@@ -123,6 +124,7 @@ function handleMessages(PDO $db, int $userId): void {
             'think' => $row['think'],
             'favorite' => $row['favorite'] ? json_decode($row['favorite'], true) : null,
             'attachments' => $row['attachments'] ? json_decode($row['attachments'], true) : null,
+            'searchResults' => $row['search_results'] ? json_decode($row['search_results'], true) : null,
             'created_at' => $row['created_at'],
         ];
     }
