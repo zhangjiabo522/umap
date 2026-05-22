@@ -201,6 +201,11 @@
         .ai-typing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); animation: ai-bounce 1.2s infinite; }
         .ai-typing-dot:nth-child(2) { animation-delay: 0.2s; }
         .ai-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        .ai-think { margin-bottom: 8px; border-radius: 10px; background: rgba(21,101,239,0.05); border: 1px solid rgba(21,101,239,0.1); overflow: hidden; }
+        .ai-think-toggle { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+        .ai-think-label { font-size: 12px; font-weight: 600; color: var(--primary); opacity: 0.7; }
+        .ai-think-arrow { font-size: 10px; color: var(--primary); opacity: 0.5; }
+        .ai-think-content { padding: 0 12px 10px; font-size: 13px; color: var(--text-secondary); line-height: 1.6; white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto; }
         @keyframes ai-bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
         .ai-status { text-align: center; font-size: 12px; color: var(--text-muted); padding: 8px 0; }
         .ai-input-area { flex-shrink: 0; background: var(--surface); border-top: 1px solid rgba(228,231,237,0.7); padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
@@ -1097,6 +1102,7 @@
         const [showFavPicker, setShowFavPicker] = useState(false);
         const [attachedFiles, setAttachedFiles] = useState([]);
         const [statusText, setStatusText] = useState('');
+        const [expandedThinks, setExpandedThinks] = useState({});
         const chatEndRef = useRef(null);
         const textareaRef = useRef(null);
         const imgInputRef = useRef(null);
@@ -1153,13 +1159,13 @@
             setSelectedFavorite(null);
 
             const aiMsgIdx = messages.length + 1;
-            setMessages(prev => [...prev, { role: 'ai', content: '' }]);
+            setMessages(prev => [...prev, { role: 'ai', content: '', think: '' }]);
 
             try {
                 const resp = await fetch('/api/ai_chat_stream.php', { method: 'POST', body: formData });
                 const reader = resp.body.getReader();
                 const dec = new TextDecoder();
-                let buf = '', fullText = '';
+                let buf = '', fullText = '', fullThink = '';
 
                 const parseEvents = (chunk) => {
                     buf += chunk;
@@ -1176,6 +1182,13 @@
                             const d = JSON.parse(evtData);
                             if (evtType === 'status') {
                                 setStatusText(d.message || '');
+                            } else if (evtType === 'think') {
+                                fullThink += d.text || '';
+                                setMessages(prev => {
+                                    const next = [...prev];
+                                    if (next[aiMsgIdx]) next[aiMsgIdx] = { ...next[aiMsgIdx], think: fullThink };
+                                    return next;
+                                });
                             } else if (evtType === 'delta') {
                                 fullText += d.text || '';
                                 setMessages(prev => {
@@ -1199,7 +1212,7 @@
                     parseEvents(dec.decode(value, { stream: true }));
                 }
 
-                if (fullText === '') {
+                if (fullText === '' && fullThink === '') {
                     setMessages(prev => {
                         const next = [...prev];
                         if (next[aiMsgIdx]) next[aiMsgIdx] = { ...next[aiMsgIdx], content: '暂无回答，请稍后重试' };
@@ -1241,7 +1254,7 @@
                                 <RobotOutlined style={{ color: 'var(--primary)', fontSize: 30 }} />
                             </div>
                             <h3>AI 旅行助手</h3>
-                            <p>问我任何旅行问题，可以上传图片、语音，或选择收藏地点一起发送</p>
+                            <p>问我任何旅行问题，可以上传图片或选择收藏地点一起发送</p>
                         </div>
                     )}
                     {messages.map((msg, i) => (
@@ -1253,21 +1266,36 @@
                                 {msg.role === 'user' && msg.attachments && msg.attachments.length > 0 && (
                                     <div className="ai-msg-attach">
                                         {msg.attachments.map((a, j) => (
-                                            <span key={j} className="ai-msg-attach-item">
-                                                {a.type?.startsWith('audio') ? '🎤 ' : '🖼 '}{a.name}
-                                            </span>
+                                            <span key={j} className="ai-msg-attach-item">🖼 {a.name}</span>
                                         ))}
                                     </div>
                                 )}
                                 {msg.role === 'user' ? (
                                     <div>{msg.content}</div>
                                 ) : (
-                                    <div className="ai-msg-content" dangerouslySetInnerHTML={renderMd(msg.content)} />
+                                    <>
+                                        {msg.think && (
+                                            <div className={`ai-think${expandedThinks[i] ? ' expanded' : ''}`}>
+                                                <div className="ai-think-toggle" onClick={() => setExpandedThinks(prev => ({ ...prev, [i]: !prev[i] }))}>
+                                                    <span className="ai-think-label">思考过程</span>
+                                                    <span className="ai-think-arrow">{expandedThinks[i] ? '▲' : '▼'}</span>
+                                                </div>
+                                                {expandedThinks[i] && (
+                                                    <div className="ai-think-content">{msg.think}</div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {msg.content ? (
+                                            <div className="ai-msg-content" dangerouslySetInnerHTML={renderMd(msg.content)} />
+                                        ) : msg.think ? (
+                                            <div className="ai-typing"><div className="ai-typing-dot"></div><div className="ai-typing-dot"></div><div className="ai-typing-dot"></div></div>
+                                        ) : null}
+                                    </>
                                 )}
                             </div>
                         </div>
                     ))}
-                    {loading && messages.length > 0 && messages[messages.length - 1]?.content === '' && (
+                    {loading && messages.length > 0 && messages[messages.length - 1]?.content === '' && !messages[messages.length - 1]?.think && (
                         <div className="ai-msg ai-msg-ai">
                             <div className="ai-msg-bubble">
                                 {statusText ? (
