@@ -228,7 +228,7 @@
         .ai-search-snippet { font-size: 12px; color: var(--text-secondary); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .ai-search-url { font-size: 11px; color: var(--text-muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .ai-location-card { border-radius: 12px; overflow: hidden; background: #fff; border: 1px solid #e8ecf1; margin: 8px 0; }
-        .ai-loc-map { width: 100%; height: 160px; object-fit: cover; background: #f0f4f8; display: block; }
+        .ai-loc-map { width: 100%; height: 180px; background: #f0f4f8; }
         .ai-loc-map-placeholder { width: 100%; height: 160px; background: linear-gradient(135deg, #e8ecf1 0%, #d5dbe3 100%); display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px; }
         .ai-loc-info { padding: 10px 12px; }
         .ai-loc-name { font-size: 15px; font-weight: 700; color: var(--text-primary); }
@@ -1142,7 +1142,6 @@
         const [expandedSearch, setExpandedSearch] = useState({});
         const [searchEnabled, setSearchEnabled] = useState(false);
         const [savedLocs, setSavedLocs] = useState({});
-        const [amapKey, setAmapKey] = useState('');
         const [sessionId, setSessionId] = useState(null);
         const [sessionTitle, setSessionTitle] = useState('新对话');
         const [showHistory, setShowHistory] = useState(false);
@@ -1151,7 +1150,7 @@
         const textareaRef = useRef(null);
         const imgInputRef = useRef(null);
 
-        useEffect(() => { loadFavorites(); loadAmapKey(); }, []);
+        useEffect(() => { loadFavorites(); }, []);
         useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
 
         async function loadFavorites() {
@@ -1165,14 +1164,6 @@
                     favs.forEach(f => { map[f.name] = true; });
                     setSavedLocs(map);
                 }
-            } catch {}
-        }
-
-        async function loadAmapKey() {
-            try {
-                const res = await fetch('/api/amap_jsapi_config.php');
-                const data = await res.json();
-                if (data.config?.key) setAmapKey(data.config.key);
             } catch {}
         }
 
@@ -1250,14 +1241,54 @@
             return segments.length ? segments : [{ type: 'text', value: text }];
         }
 
+        let _amapLib = null;
+        let _amapLoading = null;
+        function getAMap() {
+            if (_amapLib) return Promise.resolve(_amapLib);
+            if (_amapLoading) return _amapLoading;
+            _amapLoading = (async () => {
+                try {
+                    const res = await fetch('/api/amap_jsapi_config.php');
+                    const data = await res.json();
+                    const cfg = data.config || {};
+                    if (!cfg.key) throw new Error('no key');
+                    if (cfg.serviceHost) window._AMapSecurityConfig = { serviceHost: cfg.serviceHost };
+                    else if (cfg.securityJsCode) window._AMapSecurityConfig = { securityJsCode: cfg.securityJsCode };
+                    _amapLib = await window.AMapLoader.load({ key: cfg.key, version: '2.0' });
+                    return _amapLib;
+                } catch { return null; }
+            })();
+            return _amapLoading;
+        }
+
         function LocationCard({ loc }) {
             const [saving, setSaving] = useState(false);
+            const mapRef = useRef(null);
+            const mapDivRef = useRef(null);
             const isSaved = !!savedLocs[loc.name];
             const hasCoord = loc.location && loc.location.includes(',');
 
-            const mapUrl = hasCoord && amapKey
-                ? `https://restapi.amap.com/v3/staticmap?key=${amapKey}&location=${loc.location}&zoom=15&size=600*300&markers=mid,0xFF0000:${loc.location}`
-                : null;
+            useEffect(() => {
+                if (!hasCoord || !mapDivRef.current) return;
+                let destroyed = false;
+                (async () => {
+                    const AMap = await getAMap();
+                    if (!AMap || destroyed) return;
+                    const [lng, lat] = loc.location.split(',').map(Number);
+                    const map = new AMap.Map(mapDivRef.current, {
+                        zoom: 15,
+                        center: [lng, lat],
+                        mapStyle: 'amap://styles/normal',
+                        viewMode: '2D',
+                        dragEnable: false,
+                        zoomEnable: false,
+                        doubleClickZoom: false,
+                    });
+                    new AMap.Marker({ position: [lng, lat], map });
+                    mapRef.current = map;
+                })();
+                return () => { destroyed = true; if (mapRef.current) { mapRef.current.destroy(); mapRef.current = null; } };
+            }, [loc.location]);
 
             const handleSave = async () => {
                 if (saving) return;
@@ -1304,9 +1335,9 @@
 
             return (
                 <div className="ai-location-card">
-                    {mapUrl
-                        ? <img className="ai-loc-map" src={mapUrl} alt={loc.name} loading="lazy" />
-                        : <div className="ai-loc-map-placeholder"><EnvironmentOutlined style={{ fontSize: 24, marginRight: 6 }} /> 暂无地图</div>
+                    {hasCoord
+                        ? <div className="ai-loc-map" ref={mapDivRef} />
+                        : <div className="ai-loc-map-placeholder"><EnvironmentOutlined style={{ fontSize: 24, marginRight: 6 }} /> 暂无坐标</div>
                     }
                     <div className="ai-loc-info">
                         <div className="ai-loc-name">{loc.name}</div>
