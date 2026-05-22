@@ -152,6 +152,11 @@
         .home-map-status.ip { color: #D97706; }
         .home-map-status.loading { color: var(--primary); }
         .home-map-status.failed { color: #DC2626; }
+        .home-map-refresh { position: absolute; bottom: 12px; right: 12px; z-index: 10; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 12px rgba(0,0,0,0.15); color: var(--primary); font-size: 18px; -webkit-tap-highlight-color: transparent; transition: background 180ms ease, box-shadow 180ms ease, transform 180ms ease; }
+        .home-map-refresh:hover { background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+        .home-map-refresh:active { transform: scale(0.93); }
+        @keyframes map-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .home-map-refresh.spinning .anticon { animation: map-spin 0.7s linear infinite; }
         .home-scroll-area { padding: 16px; }
 
         /* AI Tab */
@@ -271,7 +276,7 @@
         CheckCircleFilled, SafetyOutlined, HeartFilled, TagsOutlined, PlusOutlined,
         CloseOutlined, ArrowLeftOutlined, SaveOutlined, InfoCircleFilled, WarningFilled,
         LoadingOutlined, StarFilled, DeleteOutlined, HomeOutlined, RobotOutlined,
-        RightOutlined, SettingOutlined, BellOutlined, QuestionCircleOutlined
+        RightOutlined, SettingOutlined, BellOutlined, QuestionCircleOutlined, AimOutlined
     } = icons;
 
     const RECAPTCHA_SITE_KEY = '6LeBLvcsAAAAAANaL5q8z4tVmVu1QPbrzarCBeoi';
@@ -643,8 +648,50 @@
     function HomeTab({ user, onGoPrefs }) {
         const mapContainerRef = useRef(null);
         const mapRef = useRef(null);
+        const AMapRef = useRef(null);
+        const markerRef = useRef(null);
         const [locStatus, setLocStatus] = useState('loading');
         const [locLabel, setLocLabel] = useState('定位中...');
+        const [refreshing, setRefreshing] = useState(false);
+
+        function locateUser(AMap, map) {
+            setLocStatus('loading');
+            setLocLabel('定位中...');
+            setRefreshing(true);
+            if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
+
+            const geo = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 8000, zoomToAccuracy: false });
+            geo.getCurrentPosition((status, result) => {
+                if (status === 'complete') {
+                    const { lng, lat } = result.position;
+                    map.setCenter([lng, lat]);
+                    map.setZoom(15);
+                    const marker = new AMap.Marker({
+                        position: [lng, lat],
+                        content: '<div style="width:18px;height:18px;border-radius:50%;background:#1565EF;border:3px solid #fff;box-shadow:0 0 0 5px rgba(21,101,239,0.22),0 2px 8px rgba(0,0,0,0.2)"></div>',
+                        offset: new AMap.Pixel(-9, -9),
+                        zIndex: 200,
+                    });
+                    map.add(marker);
+                    markerRef.current = marker;
+                    setLocStatus('gps');
+                    setLocLabel('GPS 定位');
+                    setRefreshing(false);
+                } else {
+                    new AMap.CitySearch().getLocalCity((s2, r2) => {
+                        if (s2 === 'complete' && r2.bounds) {
+                            map.setBounds(r2.bounds);
+                            setLocStatus('ip');
+                            setLocLabel(r2.city || 'IP 定位');
+                        } else {
+                            setLocStatus('failed');
+                            setLocLabel('定位失败');
+                        }
+                        setRefreshing(false);
+                    });
+                }
+            });
+        }
 
         useEffect(() => {
             if (!window.AMapLoader) { setLocStatus('failed'); setLocLabel('地图未加载'); return; }
@@ -657,37 +704,11 @@
             }).then(AMap => {
                 if (destroyed) return;
                 AMap.getConfig().appname = 'amap-jsapi-skill';
-
-                const map = new AMap.Map(mapContainerRef.current, {
-                    zoom: 13,
-                    mapStyle: 'amap://styles/normal',
-                });
+                AMapRef.current = AMap;
+                const map = new AMap.Map(mapContainerRef.current, { zoom: 13, mapStyle: 'amap://styles/normal' });
                 mapRef.current = map;
-
-                const geo = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 8000, zoomToAccuracy: true });
-                geo.getCurrentPosition((status, result) => {
-                    if (destroyed) return;
-                    if (status === 'complete') {
-                        map.setCenter([result.position.lng, result.position.lat]);
-                        map.setZoom(14);
-                        setLocStatus('gps');
-                        setLocLabel('GPS 定位');
-                    } else {
-                        const city = new AMap.CitySearch();
-                        city.getLocalCity((s2, r2) => {
-                            if (destroyed) return;
-                            if (s2 === 'complete' && r2.bounds) {
-                                map.setBounds(r2.bounds);
-                                setLocStatus('ip');
-                                setLocLabel(r2.city || 'IP 定位');
-                            } else {
-                                setLocStatus('failed');
-                                setLocLabel('定位失败');
-                            }
-                        });
-                    }
-                });
-            }).catch(() => { setLocStatus('failed'); setLocLabel('地图加载失败'); });
+                locateUser(AMap, map);
+            }).catch(() => { setLocStatus('failed'); setLocLabel('地图加载失败'); setRefreshing(false); });
 
             return () => {
                 destroyed = true;
@@ -695,15 +716,21 @@
             };
         }, []);
 
-        const statusIcon = locStatus === 'loading'
-            ? <LoadingOutlined />
-            : <EnvironmentOutlined />;
+        function handleRefresh() {
+            if (!AMapRef.current || !mapRef.current || refreshing) return;
+            locateUser(AMapRef.current, mapRef.current);
+        }
+
+        const statusIcon = locStatus === 'loading' ? <LoadingOutlined /> : <EnvironmentOutlined />;
 
         return (
             <div className="home-map-page">
                 <div className="home-map-container">
                     <div ref={mapContainerRef} className="home-map"></div>
                     <div className={`home-map-status ${locStatus}`}>{statusIcon}{locLabel}</div>
+                    <button className={`home-map-refresh${refreshing ? ' spinning' : ''}`} onClick={handleRefresh} aria-label="重新定位">
+                        <AimOutlined />
+                    </button>
                 </div>
                 <div className="home-scroll-area">
                     <div className="home-hero">
