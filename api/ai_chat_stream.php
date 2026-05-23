@@ -16,11 +16,7 @@ if (ob_get_level()) ob_end_clean();
 header('Content-Type: text/event-stream');
 header('Cache-Control: no-cache');
 header('X-Accel-Buffering: no');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
+corsHeaders();
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { sendEvt('error', ['message' => '不支持的请求方法']); exit; }
 
 session_start();
@@ -196,16 +192,6 @@ try {
 } catch (Throwable $e) {
     error_log('Mimo AI error: ' . $e->getMessage());
     sendEvt('error', ['message' => 'AI 分析失败，请稍后重试']);
-}
-
-function loadEnv(string $path): void {
-    if (!file_exists($path)) return;
-    foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-        $line = trim($line);
-        if ($line === '' || strpos($line, '#') === 0 || strpos($line, '=') === false) continue;
-        [$key, $value] = array_map('trim', explode('=', $line, 2));
-        $_ENV[$key] = trim($value, " \t\n\r\0\x0B\"'");
-    }
 }
 
 function sendEvt(string $type, array $data): void {

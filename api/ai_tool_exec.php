@@ -7,15 +7,10 @@ loadEnv(__DIR__ . '/../.env');
 define('AMAP_KEY', $_ENV['AMAP_WEB_KEY'] ?? $_ENV['AMAP_KEY'] ?? '');
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+corsHeaders();
+requireAuth();
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { jsonResponse(['success' => false, 'error' => '不支持的请求方法'], 405); exit; }
-
-session_start();
-if (empty($_SESSION['user_id'])) { jsonResponse(['success' => false, 'error' => '未登录']); exit; }
 
 $input = json_decode(file_get_contents('php://input'), true);
 $tool = $input['tool'] ?? '';
@@ -39,16 +34,6 @@ try {
 } catch (Throwable $e) {
     error_log("Tool exec error: {$e->getMessage()}");
     jsonResponse(['success' => false, 'error' => '工具执行失败，请稍后重试']);
-}
-
-function loadEnv(string $path): void {
-    if (!file_exists($path)) return;
-    foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-        $line = trim($line);
-        if ($line === '' || strpos($line, '#') === 0 || strpos($line, '=') === false) continue;
-        [$key, $value] = array_map('trim', explode('=', $line, 2));
-        if (!isset($_ENV[$key])) $_ENV[$key] = trim($value, " \t\n\r\0\x0B\"'");
-    }
 }
 
 function amapGet(string $path, array $query): array {

@@ -2784,8 +2784,7 @@
                     if (destroyed) return;
                     window.echarts.registerMap('china', geoData);
                 } catch {
-                    console.warn('Failed to load province GeoJSON');
-                    return;
+                    return; // GeoJSON optional, degrade gracefully
                 }
                 if (destroyed) return;
                 const chart = window.echarts.init(chartRef.current);
@@ -2905,7 +2904,6 @@
                 link.click();
                 message.success('卡片已保存');
             } catch (e) {
-                console.error('Card generation failed:', e);
                 message.error('生成卡片失败');
             }
             setGenerating(false);

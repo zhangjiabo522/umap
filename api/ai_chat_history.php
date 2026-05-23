@@ -2,17 +2,6 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
-if (!function_exists('loadEnv')) {
-    function loadEnv(string $path): void {
-        if (!file_exists($path)) return;
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
-            $line = trim($line);
-            if ($line === '' || strpos($line, '#') === 0 || strpos($line, '=') === false) continue;
-            [$key, $value] = array_map('trim', explode('=', $line, 2));
-            $_ENV[$key] = trim($value, " \t\n\r\0\x0B\"'");
-        }
-    }
-}
 loadEnv(__DIR__ . '/../.env');
 
 function ensureChatTables(PDO $db): void {
@@ -42,11 +31,7 @@ function ensureChatTables(PDO $db): void {
 }
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
+corsHeaders();
 
 session_start();
 if (empty($_SESSION['user_id'])) {
