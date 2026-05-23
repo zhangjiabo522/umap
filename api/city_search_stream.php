@@ -2,16 +2,10 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
-$_envFile = __DIR__ . '/../.env';
-if (file_exists($_envFile)) {
-    foreach (file($_envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $_line) {
-        if (strpos(trim($_line), '#') === 0) continue;
-        [$_k, $_v] = array_map('trim', explode('=', $_line, 2));
-        $_ENV[$_k] = $_v;
-    }
-}
-define('DEEPSEEK_KEY', $_ENV['DEEPSEEK_API_KEY'] ?? '');
-define('AMAP_KEY',     $_ENV['AMAP_KEY'] ?? '');
+loadEnv(__DIR__ . '/../.env');
+define('MIMO_API_KEY', $_ENV['MIMO_API_KEY'] ?? '');
+define('MIMO_BASE_URL', rtrim($_ENV['MIMO_BASE_URL'] ?? 'https://api.xiaomimimo.com/v1', '/'));
+define('AMAP_KEY', $_ENV['AMAP_WEB_KEY'] ?? $_ENV['AMAP_KEY'] ?? '');
 
 set_time_limit(120);
 if (ob_get_level()) ob_end_clean();
@@ -19,11 +13,7 @@ if (ob_get_level()) ob_end_clean();
 header('Content-Type: text/event-stream');
 header('Cache-Control: no-cache');
 header('X-Accel-Buffering: no');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit; }
+corsHeaders();
 
 session_start();
 if (empty($_SESSION['user_id'])) { sendEvt('error', ['message' => '未登录']); exit; }
@@ -72,9 +62,9 @@ try {
     }
 } catch (Exception $e) {}
 
-// ── Step 1: DeepSeek 搜索候选景点 ─────────────────────────────────────────────
+// ── Step 1: MIMO 搜索候选景点 ─────────────────────────────────────────────────
 sendEvt('status', ['step' => 1, 'message' => 'AI 正在分析喜好并搜索景点...']);
-$candidates = deepseekSearchAttractions($city, $userPrefs, $userFavorites, $userFeedback, $page);
+$candidates = mimoSearchAttractions($city, $userPrefs, $userFavorites, $userFeedback, $page);
 $candidates = filterDislikedAttractions($candidates, $userFeedback['dislikes'] ?? []);
 
 if (empty($candidates)) {
@@ -182,7 +172,7 @@ function normalizeAttractionName(string $name): string {
     return $name ?: '';
 }
 
-function deepseekSearchAttractions(string $city, array $userPrefs, array $userFavorites, array $userFeedback, int $page): array {
+function mimoSearchAttractions(string $city, array $userPrefs, array $userFavorites, array $userFeedback, int $page): array {
     $prefsText = empty($userPrefs) ? '无特定偏好（推荐该城市综合热度高、适合大多数游客的景点）' : implode('、', $userPrefs);
     $favoriteText = buildFeedbackText($userFavorites);
     $likeText = buildFeedbackText($userFeedback['likes'] ?? []);
@@ -202,9 +192,9 @@ function deepseekSearchAttractions(string $city, array $userPrefs, array $userFa
 筛选规则：
 1. 谨慎筛选，筛掉用户可能不喜欢的景点
 2. 用户不想看的景点不要出现在返回列表
-3. “用户点过踩/不喜欢的景点”中出现过的同名景点绝对不要返回
+3. "用户点过踩/不喜欢的景点"中出现过的同名景点绝对不要返回
 4. 被用户踩过的景点及相似类型、相似标签、相似体验不要推荐
-5. “用户现有收藏景点”和“用户点过赞的景点”作为正向画像参考，但不要重复推荐同名景点
+5. "用户现有收藏景点"和"用户点过赞的景点"作为正向画像参考，但不要重复推荐同名景点
 6. 按 confidence 从高到低排序
 7. confidence 表示用户可能喜欢该景点的置信度，范围 0.01 到 1.00
 8. 不同页尽量返回不同景点
@@ -215,7 +205,7 @@ function deepseekSearchAttractions(string $city, array $userPrefs, array $userFa
 [{"name":"景点名","description":"50字内简介，突出与用户偏好的匹配点","tags":["标签1","标签2"],"confidence":0.95}]
 PROMPT;
 
-    $result = callDeepSeek($prompt, '你是专业旅游顾问。严格按用户偏好搜索并筛选景点，只返回JSON数组，不输出任何解释。');
+    $result = callMimo($prompt, '你是专业旅游顾问。严格按用户偏好搜索并筛选景点，只返回JSON数组，不输出任何解释。');
     usort($result, fn($a, $b) => ($b['confidence'] ?? 0) <=> ($a['confidence'] ?? 0));
     return $result;
 }
@@ -297,25 +287,23 @@ function parallelAmapLookup(string $city, array $candidates, int $total): array 
     return array_values($results);
 }
 
-function callDeepSeek(string $prompt, string $system): array {
+function callMimo(string $prompt, string $system): array {
     $payload = json_encode([
-        'model' => 'deepseek-v4-flash',
+        'model' => 'mimo-v2-flash',
         'messages' => [
             ['role' => 'system', 'content' => $system],
             ['role' => 'user', 'content' => $prompt],
         ],
-        'thinking' => ['type' => 'enabled'],
-        'reasoning_effort' => 'high',
         'stream' => false,
     ], JSON_UNESCAPED_UNICODE);
 
-    $ch = curl_init('https://api.deepseek.com/chat/completions');
+    $ch = curl_init(MIMO_BASE_URL . '/chat/completions');
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => $payload,
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'Authorization: Bearer ' . DEEPSEEK_KEY,
+            'api-key: ' . MIMO_API_KEY,
         ],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 60,

@@ -2,27 +2,14 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
-$_envFile = __DIR__ . '/../.env';
-if (file_exists($_envFile)) {
-    foreach (file($_envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $_line) {
-        if (strpos(trim($_line), '#') === 0) continue;
-        [$_k, $_v] = array_map('trim', explode('=', $_line, 2));
-        $_ENV[$_k] = $_v;
-    }
-}
-define('DEEPSEEK_KEY', $_ENV['DEEPSEEK_API_KEY'] ?? '');
+loadEnv(__DIR__ . '/../.env');
+define('MIMO_API_KEY', $_ENV['MIMO_API_KEY'] ?? '');
+define('MIMO_BASE_URL', rtrim($_ENV['MIMO_BASE_URL'] ?? 'https://api.xiaomimimo.com/v1', '/'));
 
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
-}
+header('Content-Type: application/json; charset=utf-8');
+corsHeaders();
 
 session_start();
-
 if (empty($_SESSION['user_id'])) {
     jsonResponse(['success' => false, 'message' => '未登录'], 401);
 }
@@ -69,22 +56,20 @@ function callAI($city, $userPrefs) {
 [{"name":"景点名","description":"50字内简介，突出与用户偏好的匹配点","address":"详细地址","tags":["标签1","标签2"],"confidence":0.95}]
 PROMPT;
 
-    $ch = curl_init('https://api.deepseek.com/chat/completions');
+    $ch = curl_init(MIMO_BASE_URL . '/chat/completions');
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode([
-            'model' => 'deepseek-v4-flash',
+            'model' => 'mimo-v2-flash',
             'messages' => [
                 ['role' => 'system', 'content' => '你是专业旅游顾问。严格按用户偏好筛选景点，只返回JSON数组，不输出任何解释。'],
                 ['role' => 'user', 'content' => $prompt],
             ],
-            'thinking' => ['type' => 'enabled'],
-            'reasoning_effort' => 'high',
             'stream' => false,
         ], JSON_UNESCAPED_UNICODE),
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'Authorization: Bearer ' . DEEPSEEK_KEY,
+            'api-key: ' . MIMO_API_KEY,
         ],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 60,
