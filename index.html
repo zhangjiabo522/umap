@@ -22,6 +22,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ant-design/icons@5.2.6/dist/index.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.6/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
     <script src="/api/recaptcha-js.php?render=explicit" async defer onerror=""></script>
     <style>
         :root {
@@ -398,8 +399,7 @@
         .search-step-detail { margin-left: auto; font-size: 11px; color: var(--text-muted); max-width: 160px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .step-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
         /* Footprint Page */
-        .footprint-map { width: 100%; height: 360px; background: #E8EDF2; }
-        .footprint-map .amap-logo, .footprint-map .amap-copyright { display: none !important; }
+        .footprint-map { width: 100%; height: 360px; background: #F5F7FA; }
         .footprint-stats { display: flex; gap: 12px; padding: 16px; }
         .footprint-stat-card { flex: 1; background: var(--surface); border-radius: 12px; padding: 14px; text-align: center; box-shadow: 0 2px 8px rgba(15,20,55,0.06); }
         .footprint-stat-num { font-size: 24px; font-weight: 800; color: var(--primary); font-family: var(--font-heading); }
@@ -2216,8 +2216,8 @@
         const [provinces, setProvinces] = useState([]);
         const [records, setRecords] = useState([]);
         const [loading, setLoading] = useState(true);
-        const mapRef = useRef(null);
-        const mapContainerRef = useRef(null);
+        const chartRef = useRef(null);
+        const chartInstance = useRef(null);
 
         useEffect(() => { loadFootprints(); }, []);
 
@@ -2237,49 +2237,65 @@
         }
 
         useEffect(() => {
-            if (loading || !mapContainerRef.current) return;
+            if (loading || !chartRef.current || !window.echarts) return;
             let destroyed = false;
-            initMap();
+            initChart();
             return () => {
                 destroyed = true;
-                if (mapRef.current) { mapRef.current.destroy(); mapRef.current = null; }
+                if (chartInstance.current) { chartInstance.current.dispose(); chartInstance.current = null; }
             };
-            async function initMap() {
-                const AMap = await getAMap();
-                if (!AMap || destroyed) return;
-                const map = new AMap.Map(mapContainerRef.current, {
-                    zoom: 4,
-                    center: [104.0, 37.5],
-                    mapStyle: 'amap://styles/normal',
-                    viewMode: '2D',
-                    features: ['bg', 'road'],
-                });
-                mapRef.current = map;
+            async function initChart() {
                 try {
                     const geoRes = await fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json');
                     if (!geoRes.ok) throw new Error('GeoJSON fetch failed');
                     const geoData = await geoRes.json();
                     if (destroyed) return;
-                    const geoJson = new AMap.GeoJSON({
-                        geoJSON: geoData,
-                        getPolygon: function(feature, path) {
-                            const name = feature.properties.name;
-                            const shortName = normalizeProvinceName(name);
-                            const isVisited = provinces.some(p => normalizeProvinceName(p) === shortName);
-                            return new AMap.Polygon({
-                                path: path,
-                                fillOpacity: isVisited ? 0.45 : 0.08,
-                                fillColor: isVisited ? '#059669' : '#CBD5E1',
-                                strokeColor: isVisited ? '#047857' : '#94A3B8',
-                                strokeWeight: 1,
-                                cursor: 'pointer',
-                            });
-                        },
-                    });
-                    geoJson.setMap(map);
+                    window.echarts.registerMap('china', geoData);
                 } catch {
                     console.warn('Failed to load province GeoJSON');
+                    return;
                 }
+                if (destroyed) return;
+                const chart = window.echarts.init(chartRef.current);
+                chartInstance.current = chart;
+                const visitedSet = new Set(provinces.map(p => normalizeProvinceName(p)));
+                const mapData = geoData.features.map(f => {
+                    const name = f.properties.name;
+                    const shortName = normalizeProvinceName(name);
+                    const isVisited = visitedSet.has(shortName);
+                    return { name: name, value: isVisited ? 1 : 0 };
+                });
+                chart.setOption({
+                    tooltip: {
+                        trigger: 'item',
+                        formatter: function(params) {
+                            if (params.data && params.data.value === 1) return params.name + '<br/>已探访';
+                            return params.name;
+                        },
+                    },
+                    visualMap: {
+                        show: false,
+                        min: 0,
+                        max: 1,
+                        inRange: { color: ['#E2E8F0', '#059669'] },
+                    },
+                    series: [{
+                        type: 'map',
+                        map: 'china',
+                        roam: false,
+                        label: { show: false },
+                        emphasis: {
+                            label: { show: true, color: '#fff', fontSize: 11 },
+                            itemStyle: { areaColor: '#047857' },
+                        },
+                        itemStyle: {
+                            borderColor: '#94A3B8',
+                            borderWidth: 0.8,
+                        },
+                        data: mapData,
+                    }],
+                });
+                window.addEventListener('resize', () => chart.resize());
             }
         }, [loading, provinces]);
 
@@ -2309,7 +2325,7 @@
                                     <div className="footprint-stat-label">总足迹次数</div>
                                 </div>
                             </div>
-                            <div ref={mapContainerRef} className="footprint-map" />
+                            <div ref={chartRef} className="footprint-map" />
                             {provinces.length > 0 && (
                                 <div className="footprint-province-list">
                                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', padding: '16px 0 10px' }}>已探访省份</div>
