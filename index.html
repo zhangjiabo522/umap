@@ -1079,20 +1079,17 @@
             };
         }, []);
 
-        var geoWatchId = null;
-
         function locateUser(AMap, map) {
             setLocStatus('loading');
             setLocLabel('定位中...');
             setRefreshing(true);
             if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
 
-            if (geoWatchId !== null) {
-                navigator.geolocation.clearWatch(geoWatchId);
-                geoWatchId = null;
-            }
+            var done = false;
 
             function placeMarker(lng, lat, label) {
+                if (done) return;
+                done = true;
                 map.setCenter([lng, lat]);
                 map.setZoom(17);
                 if (onLocationUpdate) onLocationUpdate({ lng: lng, lat: lat });
@@ -1110,44 +1107,58 @@
                 setRefreshing(false);
             }
 
-            // GPS定位 — watchPosition触发权限弹窗
-            if (navigator.geolocation) {
-                geoWatchId = navigator.geolocation.watchPosition(function(pos) {
-                    // 拿到GPS坐标，停止watch
-                    navigator.geolocation.clearWatch(geoWatchId);
-                    geoWatchId = null;
-                    var lng = pos.coords.longitude;
-                    var lat = pos.coords.latitude;
-                    // 转为高德坐标系
-                    AMap.convertFrom([lng, lat], 'gps', function(s, r) {
-                        if (s === 'complete' && r.locations && r.locations[0]) {
-                            placeMarker(r.locations[0].lng, r.locations[0].lat, 'GPS定位');
-                        } else {
-                            placeMarker(lng, lat, 'GPS定位');
-                        }
-                    });
-                }, function() {
-                    // GPS失败，IP保底
-                    navigator.geolocation.clearWatch(geoWatchId);
-                    geoWatchId = null;
-                    fallbackIP();
-                }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
-            } else {
-                fallbackIP();
+            function fail(msg) {
+                if (done) return;
+                done = true;
+                setLocStatus('failed');
+                setLocLabel(msg);
+                setRefreshing(false);
             }
 
-            function fallbackIP() {
+            // 方案1: AMap.Geolocation — 融合GPS+IP，走国内服务器，不依赖谷歌
+            var geo = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 12000 });
+            geo.getCurrentPosition(function(status, result) {
+                if (status === 'complete') {
+                    var lng = result.position.lng;
+                    var lat = result.position.lat;
+                    var accuracy = result.position.accuracy;
+                    placeMarker(lng, lat, (accuracy && accuracy <= 200) ? 'GPS定位' : '网络定位');
+                }
+            });
+
+            // 方案2: navigator.geolocation — 触发系统权限弹窗的备用
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(pos) {
+                    if (done) return;
+                    var lng = pos.coords.longitude;
+                    var lat = pos.coords.latitude;
+                    AMap.convertFrom([lng, lat], 'gps', function(s, r) {
+                        if (done) return;
+                        if (s === 'complete' && r.locations && r.locations[0]) {
+                            placeMarker(r.locations[0].lng, r.locations[0].lat, 'GPS定位');
+                        }
+                    });
+                }, function() {});
+            }
+
+            // 方案3: IP定位 — 最后的保底，2秒后如果没有GPS结果就显示
+            var ipTimer = setTimeout(function() {
+                if (done) return;
                 new AMap.CitySearch().getLocalCity(function(status, result) {
+                    if (done) return;
                     if (status === 'complete' && result.bounds) {
                         var c = result.bounds.getCenter();
                         placeMarker(c.lng, c.lat, '网络定位');
                     } else {
-                        setLocStatus('failed');
-                        setLocLabel('定位失败');
-                        setRefreshing(false);
+                        fail('定位失败');
                     }
                 });
-            }
+            }, 3000);
+
+            // 全局超时 — 15秒没结果就放弃
+            setTimeout(function() {
+                if (!done) fail('定位超时');
+            }, 15000);
         }
 
         useEffect(() => {
