@@ -234,11 +234,11 @@
         .ai-msg-attach-item { font-size: 11px; background: rgba(21,101,239,0.1); color: var(--primary); padding: 3px 8px; border-radius: 8px; }
         .ai-msg-fav { font-size: 11px; background: rgba(13,148,136,0.1); color: var(--accent); padding: 3px 8px; border-radius: 8px; margin-bottom: 6px; display: inline-block; }
         .ai-typing { display: inline-flex; gap: 4px; padding: 4px 0; }
-        .ai-typing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); animation: ai-bounce 1.2s infinite; }
+        .ai-typing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); animation: ai-blink 1.4s infinite; }
         .ai-typing-dot:nth-child(2) { animation-delay: 0.2s; }
         .ai-typing-dot:nth-child(3) { animation-delay: 0.4s; }
         .ai-typing-inline { display: inline-flex; gap: 3px; padding: 0 0 0 4px; vertical-align: middle; align-items: center; }
-        .ai-typing-inline .ai-typing-dot { width: 5px; height: 5px; background: var(--primary); opacity: 0.6; }
+        .ai-typing-inline .ai-typing-dot { width: 5px; height: 5px; background: var(--primary); }
         .ai-think { margin-bottom: 8px; border-radius: 10px; background: rgba(21,101,239,0.05); border: 1px solid rgba(21,101,239,0.1); overflow: hidden; }
         .ai-think-toggle { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .ai-think-label { font-size: 12px; font-weight: 600; color: var(--primary); opacity: 0.7; }
@@ -273,7 +273,7 @@
         .ai-toolcall-spinner { width: 16px; height: 16px; border: 2.5px solid rgba(21,101,239,0.2); border-top-color: var(--primary); border-radius: 50%; animation: ai-spin 0.7s linear infinite; }
         @keyframes ai-toolcall-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
         @keyframes ai-spin { to { transform: rotate(360deg); } }
-        @keyframes ai-bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
+        @keyframes ai-blink { 0%,100% { opacity: 0.15; } 50% { opacity: 1; } }
 
         /* Tool Result Card */
         .ai-tool-result { border-radius: 12px; overflow: hidden; background: #fff; border: 1px solid #e8ecf1; margin: 8px 0; }
