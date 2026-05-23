@@ -47,8 +47,10 @@ try {
         $decoded = json_decode($rawJson, true);
         if (is_array($decoded)) $searchResultsData = $decoded;
     }
+    $isContinue = ($_POST['continue'] ?? '0') === '1';
+    $prevToolResults = trim($_POST['previous_tool_results'] ?? '');
 
-    if ($message === '' && empty($attachments)) {
+    if (!$isContinue && $message === '' && empty($attachments)) {
         sendEvt('error', ['message' => '请输入问题或上传文件']);
         exit;
     }
@@ -57,20 +59,22 @@ try {
     $userId = intval($_SESSION['user_id']);
     ensureChatTables($db);
 
-    // Create session if not provided
+    // Create session if not provided (only for new conversations)
     if ($sessionId <= 0) {
-        $title = mb_substr($message ?: '图片对话', 0, 20);
+        $title = mb_substr($message ?: '工具调用', 0, 20);
         $stmt = $db->prepare("INSERT INTO ai_chat_sessions (user_id, title) VALUES (?, ?)");
         $stmt->execute([$userId, $title]);
         $sessionId = intval($db->lastInsertId());
         sendEvt('session', ['session_id' => $sessionId, 'title' => $title]);
     }
 
-    // Save user message
-    $attachJson = empty($attachments) ? null : json_encode(array_map(fn($a) => ['name' => $a['name'], 'type' => $a['type']], $attachments), JSON_UNESCAPED_UNICODE);
-    $favJson = empty($favorite) ? null : json_encode($favorite, JSON_UNESCAPED_UNICODE);
-    $stmt = $db->prepare("INSERT INTO ai_chat_messages (session_id, role, content, favorite, attachments) VALUES (?, 'user', ?, ?, ?)");
-    $stmt->execute([$sessionId, $message ?: '(上传文件)', $favJson, $attachJson]);
+    // Save user message (skip for continue mode - tool calls are system-orchestrated)
+    if (!$isContinue) {
+        $attachJson = empty($attachments) ? null : json_encode(array_map(fn($a) => ['name' => $a['name'], 'type' => $a['type']], $attachments), JSON_UNESCAPED_UNICODE);
+        $favJson = empty($favorite) ? null : json_encode($favorite, JSON_UNESCAPED_UNICODE);
+        $stmt = $db->prepare("INSERT INTO ai_chat_messages (session_id, role, content, favorite, attachments) VALUES (?, 'user', ?, ?, ?)");
+        $stmt->execute([$sessionId, $message ?: '(上传文件)', $favJson, $attachJson]);
+    }
 
     sendEvt('status', ['message' => '正在校验上传内容...']);
     $mediaItems = buildMediaItems($attachments);
@@ -81,14 +85,16 @@ try {
     // Load conversation history (last 10 rounds)
     $historyMessages = loadHistoryMessages($db, $sessionId, 10);
 
-    $text = buildUserText($message, $favorite, $mediaItems, $searchResults);
+    $text = $isContinue
+        ? "以下是工具调用返回的实时数据，请基于这些数据继续回答用户的问题：\n\n{$prevToolResults}"
+        : buildUserText($message, $favorite, $mediaItems, $searchResults);
 
     $mimoMessages = [['role' => 'system', 'content' => buildSystemPrompt($profile, $userLng, $userLat)]];
     foreach ($historyMessages as $hm) {
         $mimoMessages[] = ['role' => $hm['role'] === 'user' ? 'user' : 'assistant', 'content' => $hm['content']];
     }
-    // Replace last user message with current
-    if (!empty($historyMessages)) array_pop($mimoMessages);
+    // Replace last user message with current (unless continue mode uses all history)
+    if (!$isContinue && !empty($historyMessages)) array_pop($mimoMessages);
     $mimoMessages[] = ['role' => 'user', 'content' => $text];
 
     $payload = [
@@ -419,6 +425,43 @@ location字段为高德GCJ-02坐标(经度,纬度)，如不确定坐标可省略
 ```userlike_update
 新增喜好：xxx
 ```
+
+8. 当你需要搜索实时地点信息时（如搜索餐厅、酒店、景点等），使用以下代码块调用搜索工具：
+```tool_call
+{"tool":"search_places","params":{"keyword":"搜索关键词","city":"城市名"}}
+```
+
+9. 当用户需要搜索某个位置附近的地点时，使用以下代码块调用周边搜索工具：
+```tool_call
+{"tool":"get_nearby","params":{"lng":116.397,"lat":39.908,"type":"餐饮|酒店|景点","radius":3000}}
+```
+type可选值：餐饮、酒店、景点、购物、交通设施、生活服务
+
+10. 当用户询问天气时，使用以下代码块调用天气工具：
+```tool_call
+{"tool":"get_weather","params":{"city":"城市名"}}
+```
+
+11. 当需要规划多日旅行行程时，在推荐完地点后，用以下代码块输出结构化的行程计划（便于前端渲染为行程卡片）：
+```itinerary
+{"title":"行程标题","days":[{"day":1,"title":"第1天主题","items":[{"time":"09:00","activity":"活动名称","tip":"小贴士"}}]}]}
+```
+
+12. 当需要对比多个地点/酒店/餐厅时，用以下代码块输出对比信息（便于前端渲染为对比卡片）：
+```comparison
+{"title":"对比标题","items":[{"name":"名称","attrs":[{"label":"属性名","value":"属性值"}],"recommend":true}]}
+```
+
+13. 有重要的旅行注意事项、警告或提示需要强调时，用以下代码块输出：
+```travel_tip
+{"type":"warning|info|success","title":"标题","content":"详细内容"}
+```
+
+重要规则：
+- search_places/get_nearby/get_weather 会实际调用API返回实时数据，请在需要实时信息时优先使用
+- 每次回复最多调用2次工具，避免过多API请求
+- 工具调用代码块放在回答末尾
+- itinerary/comparison/travel_tip 是纯展示工具，由你直接生成内容
 PROMPT;
 }
 

@@ -214,6 +214,7 @@
         .ai-msg-bubble { max-width: 88%; padding: 10px 13px; border-radius: 18px; font-size: 14px; line-height: 1.6; word-break: break-word; }
         .ai-msg-user .ai-msg-bubble { background: var(--primary); color: #fff; border-bottom-right-radius: 6px; }
         .ai-msg-ai .ai-msg-bubble { background: var(--surface); color: var(--text-primary); border-bottom-left-radius: 6px; box-shadow: 0 2px 8px rgba(15,20,55,0.06); }
+        .ai-msg-tool .ai-msg-bubble { background: #f8fafc; border: 1px solid #e8ecf1; border-radius: 14px; max-width: 95%; padding: 6px 10px; }
         .ai-msg-content h1, .ai-msg-content h2, .ai-msg-content h3 { font-family: var(--font-heading); margin: 12px 0 6px; font-weight: 700; }
         .ai-msg-content h1 { font-size: 17px; } .ai-msg-content h2 { font-size: 15px; } .ai-msg-content h3 { font-size: 14px; }
         .ai-msg-content p { margin: 6px 0; }
@@ -263,7 +264,84 @@
         .ai-loc-btn-nav:active { opacity: 0.85; }
         .ai-loc-btn-fav { background: #f0f4f8; color: var(--text-primary); }
         .ai-loc-btn-fav.saved { background: rgba(13,148,136,0.1); color: var(--accent); }
+        /* Tool Call Banner */
+        .ai-toolcall-banner { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; margin: 6px 0; font-size: 13px; font-weight: 600; animation: ai-toolcall-pulse 1.2s ease-in-out infinite; }
+        .ai-toolcall-banner.loading { background: linear-gradient(135deg, #EEF4FF 0%, #E0EBFF 100%); color: var(--primary); border: 1px solid rgba(21,101,239,0.15); }
+        .ai-toolcall-banner.done { background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%); color: #059669; border: 1px solid rgba(5,150,105,0.15); animation: none; }
+        .ai-toolcall-spinner { width: 16px; height: 16px; border: 2.5px solid rgba(21,101,239,0.2); border-top-color: var(--primary); border-radius: 50%; animation: ai-spin 0.7s linear infinite; }
+        @keyframes ai-toolcall-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
+        @keyframes ai-spin { to { transform: rotate(360deg); } }
         @keyframes ai-bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
+
+        /* Tool Result Card */
+        .ai-tool-result { border-radius: 12px; overflow: hidden; background: #fff; border: 1px solid #e8ecf1; margin: 8px 0; }
+        .ai-tool-result-header { padding: 10px 14px; background: #f8fafc; border-bottom: 1px solid #e8ecf1; font-size: 12px; color: var(--text-muted); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+        .ai-tool-result-places { padding: 8px 0; }
+        .ai-tool-result-place { padding: 10px 14px; border-bottom: 1px solid #f0f4f8; display: flex; align-items: center; gap: 10px; }
+        .ai-tool-result-place:last-child { border-bottom: none; }
+        .ai-tool-result-place-rank { width: 24px; height: 24px; border-radius: 50%; background: #f0f4f8; color: var(--text-secondary); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .ai-tool-result-place-rank.top3 { background: var(--primary); color: #fff; }
+        .ai-tool-result-place-info { flex: 1; min-width: 0; }
+        .ai-tool-result-place-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+        .ai-tool-result-place-addr { font-size: 12px; color: var(--text-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ai-tool-result-place-meta { display: flex; gap: 8px; margin-top: 2px; font-size: 11px; color: var(--text-muted); }
+        .ai-tool-result-place-nav { width: 32px; height: 32px; border-radius: 50%; border: none; background: #f0f4f8; color: var(--primary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; transition: background 150ms; }
+        .ai-tool-result-place-nav:active { background: #E0EBFF; }
+        .ai-tool-result-weather { padding: 14px; display: flex; gap: 12px; }
+        .ai-tool-result-weather-today { flex-shrink: 0; text-align: center; padding: 10px 16px; background: linear-gradient(135deg, #EEF4FF, #E8F0FE); border-radius: 12px; min-width: 80px; }
+        .ai-tool-result-weather-temp { font-size: 32px; font-weight: 700; color: var(--primary); line-height: 1; font-family: var(--font-display); }
+        .ai-tool-result-weather-desc { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+        .ai-tool-result-weather-forecast { flex: 1; display: flex; gap: 6px; overflow-x: auto; }
+        .ai-tool-result-weather-day { flex: 1; min-width: 55px; text-align: center; padding: 8px 4px; background: #f8fafc; border-radius: 8px; font-size: 11px; }
+        .ai-tool-result-weather-day .day { font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+        .ai-tool-result-weather-day .weather { color: var(--text-secondary); margin-bottom: 2px; }
+        .ai-tool-result-weather-day .temp { color: var(--primary); font-weight: 600; }
+
+        /* Itinerary Card */
+        .ai-itinerary-card { border-radius: 12px; overflow: hidden; background: #fff; border: 1px solid #e8ecf1; margin: 8px 0; }
+        .ai-itinerary-title { padding: 12px 14px; font-size: 15px; font-weight: 700; color: var(--text-primary); border-bottom: 1px solid #e8ecf1; background: linear-gradient(135deg, #f8fafc, #fff); }
+        .ai-itinerary-day { border-bottom: 1px solid #f0f4f8; }
+        .ai-itinerary-day:last-child { border-bottom: none; }
+        .ai-itinerary-day-header { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; cursor: pointer; user-select: none; transition: background 150ms; -webkit-tap-highlight-color: transparent; }
+        .ai-itinerary-day-header:active { background: #f8fafc; }
+        .ai-itinerary-day-label { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+        .ai-itinerary-day-badge { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+        .ai-itinerary-day-arrow { font-size: 10px; color: var(--text-muted); transition: transform 200ms; }
+        .ai-itinerary-day-arrow.open { transform: rotate(180deg); }
+        .ai-itinerary-day-items { padding: 0 14px 12px; }
+        .ai-itinerary-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px dashed #e8ecf1; }
+        .ai-itinerary-item:last-child { border-bottom: none; }
+        .ai-itinerary-item-time { flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--primary); background: #EEF4FF; padding: 2px 8px; border-radius: 4px; line-height: 1.6; }
+        .ai-itinerary-item-content { flex: 1; }
+        .ai-itinerary-item-activity { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .ai-itinerary-item-tip { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+        /* Comparison Card */
+        .ai-comparison-card { border-radius: 12px; overflow: hidden; background: #fff; border: 1px solid #e8ecf1; margin: 8px 0; }
+        .ai-comparison-title { padding: 12px 14px; font-size: 15px; font-weight: 700; color: var(--text-primary); border-bottom: 1px solid #e8ecf1; }
+        .ai-comparison-table { overflow-x: auto; }
+        .ai-comparison-row { display: flex; border-bottom: 1px solid #f0f4f8; }
+        .ai-comparison-row:last-child { border-bottom: none; }
+        .ai-comparison-cell { flex: 1; min-width: 80px; padding: 10px 12px; font-size: 13px; color: var(--text-primary); text-align: center; }
+        .ai-comparison-cell:first-child { background: #f8fafc; font-weight: 600; color: var(--text-secondary); font-size: 12px; text-align: left; min-width: 60px; max-width: 80px; flex: none; }
+        .ai-comparison-cell-header { font-weight: 700; font-size: 14px; border-bottom: 1px solid #e8ecf1; }
+        .ai-comparison-cell.recommend { color: var(--accent); }
+
+        /* Travel Tip Card */
+        .ai-traveltip-card { border-radius: 12px; padding: 12px 14px; margin: 8px 0; display: flex; gap: 10px; }
+        .ai-traveltip-card.warning { background: #FFFBEB; border: 1px solid #FDE68A; }
+        .ai-traveltip-card.info { background: #EEF4FF; border: 1px solid #BFDBFE; }
+        .ai-traveltip-card.success { background: #ECFDF5; border: 1px solid #A7F3D0; }
+        .ai-traveltip-icon { flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; margin-top: 1px; }
+        .ai-traveltip-card.warning .ai-traveltip-icon { background: #F59E0B; color: #fff; }
+        .ai-traveltip-card.info .ai-traveltip-icon { background: var(--primary); color: #fff; }
+        .ai-traveltip-card.success .ai-traveltip-icon { background: #10B981; color: #fff; }
+        .ai-traveltip-body { flex: 1; }
+        .ai-traveltip-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+        .ai-traveltip-card.warning .ai-traveltip-title { color: #92400E; }
+        .ai-traveltip-card.info .ai-traveltip-title { color: #1E40AF; }
+        .ai-traveltip-card.success .ai-traveltip-title { color: #065F46; }
+        .ai-traveltip-content { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
         .ai-status { text-align: center; font-size: 12px; color: var(--text-muted); padding: 8px 0; }
         .ai-input-area { flex-shrink: 0; background: var(--surface); border-top: 1px solid rgba(228,231,237,0.7); padding: 8px 12px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
         .ai-attach-preview { display: flex; gap: 8px; padding: 0 4px 8px; flex-wrap: wrap; }
@@ -1627,16 +1705,34 @@
 
         function parseContent(text) {
             if (!text) return [{ type: 'text', value: '' }];
-            const parts = text.split(/```location\s*\n([\s\S]*?)\n```/g);
+            // Parse all code block types: location, tool_call, itinerary, comparison, travel_tip
+            const parts = text.split(/```(location|tool_call|itinerary|comparison|travel_tip)\s*\n([\s\S]*?)\n```/g);
             const segments = [];
             for (let i = 0; i < parts.length; i++) {
-                if (i % 2 === 0) {
+                if (i % 3 === 0) {
                     if (parts[i] && parts[i].trim()) segments.push({ type: 'text', value: parts[i] });
                 } else {
+                    const blockType = parts[i];
+                    const blockContent = parts[i + 1];
+                    i++; // skip content, we consumed 3 parts
                     try {
-                        const loc = JSON.parse(parts[i]);
-                        if (loc.name) segments.push({ type: 'location', value: loc });
-                    } catch { segments.push({ type: 'text', value: '```location\n' + parts[i] + '\n```' }); }
+                        const data = JSON.parse(blockContent);
+                        if (blockType === 'location' && data.name) {
+                            segments.push({ type: 'location', value: data });
+                        } else if (blockType === 'tool_call' && data.tool) {
+                            segments.push({ type: 'tool_call', value: data });
+                        } else if (blockType === 'itinerary' && data.days) {
+                            segments.push({ type: 'itinerary', value: data });
+                        } else if (blockType === 'comparison' && data.items) {
+                            segments.push({ type: 'comparison', value: data });
+                        } else if (blockType === 'travel_tip' && data.content) {
+                            segments.push({ type: 'travel_tip', value: data });
+                        } else {
+                            segments.push({ type: 'text', value: '```' + blockType + '\n' + blockContent + '\n```' });
+                        }
+                    } catch {
+                        segments.push({ type: 'text', value: '```' + blockType + '\n' + blockContent + '\n```' });
+                    }
                 }
             }
             return segments.length ? segments : [{ type: 'text', value: text }];
@@ -1729,6 +1825,158 @@
             );
         }
 
+        function ToolCallBanner({ tool, status }) {
+            const toolNames = { search_places: '搜索地点', get_nearby: '搜索周边', get_weather: '查询天气' };
+            const label = toolNames[tool] || tool;
+            return (
+                <div className={`ai-toolcall-banner ${status}`}>
+                    {status === 'loading' && <div className="ai-toolcall-spinner" />}
+                    {status === 'loading' ? `正在${label}...` : `已完成${label}`}
+                </div>
+            );
+        }
+
+        function ToolResultCard({ tool, result }) {
+            if (tool === 'search_places' || tool === 'get_nearby') {
+                const places = result.places || [];
+                return (
+                    <div className="ai-tool-result">
+                        <div className="ai-tool-result-header">
+                            <EnvironmentOutlined /> {tool === 'search_places' ? `搜索"${result.keyword}"` : `周边${result.type || '搜索'}`} · {result.count} 个结果
+                        </div>
+                        <div className="ai-tool-result-places">
+                            {places.map((p, i) => (
+                                <div key={i} className="ai-tool-result-place">
+                                    <div className={`ai-tool-result-place-rank${i < 3 ? ' top3' : ''}`}>{i + 1}</div>
+                                    <div className="ai-tool-result-place-info">
+                                        <div className="ai-tool-result-place-name">{p.name}</div>
+                                        <div className="ai-tool-result-place-addr">{p.address}</div>
+                                        <div className="ai-tool-result-place-meta">
+                                            {p.rating && <span>⭐ {p.rating}</span>}
+                                            {p.cost && <span>💰 {p.cost}</span>}
+                                            {p.distance && <span>📏 {p.distance}m</span>}
+                                            {p.type && <span>🏷 {p.type.split(';')[0]}</span>}
+                                        </div>
+                                    </div>
+                                    {p.location && (
+                                        <button className="ai-tool-result-place-nav" onClick={() => {
+                                            const [lng, lat] = p.location.split(',');
+                                            window.location.href = `https://uri.amap.com/marker?position=${lng},${lat}&name=${encodeURIComponent(p.name)}&src=umap&coordinate=gaode&callnative=1`;
+                                        }}><CompassOutlined /></button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            }
+            if (tool === 'get_weather') {
+                const fc = result.forecast || [];
+                return (
+                    <div className="ai-tool-result">
+                        <div className="ai-tool-result-header">🌤 {result.city} · {result.reportTime}</div>
+                        <div className="ai-tool-result-weather">
+                            {fc.length > 0 && (
+                                <div className="ai-tool-result-weather-today">
+                                    <div className="ai-tool-result-weather-temp">{fc[0].dayTemp}°</div>
+                                    <div className="ai-tool-result-weather-desc">{fc[0].dayWeather}</div>
+                                    <div style={{fontSize:11,color:'var(--text-muted)',marginTop:2}}>↓ {fc[0].nightTemp}°</div>
+                                </div>
+                            )}
+                            <div className="ai-tool-result-weather-forecast">
+                                {fc.slice(1, 5).map((d, i) => (
+                                    <div key={i} className="ai-tool-result-weather-day">
+                                        <div className="day">{d.week}</div>
+                                        <div className="weather">{d.dayWeather}</div>
+                                        <div className="temp">{d.dayTemp}°/{d.nightTemp}°</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+            return null;
+        }
+
+        function ItineraryCard({ data }) {
+            const [openDays, setOpenDays] = useState({ 0: true });
+            const toggleDay = (i) => setOpenDays(p => ({ ...p, [i]: !p[i] }));
+            if (!data.days) return null;
+            return (
+                <div className="ai-itinerary-card">
+                    {data.title && <div className="ai-itinerary-title">📋 {data.title}</div>}
+                    {data.days.map((d, i) => (
+                        <div key={i} className="ai-itinerary-day">
+                            <div className="ai-itinerary-day-header" onClick={() => toggleDay(i)}>
+                                <div className="ai-itinerary-day-label">
+                                    <span className="ai-itinerary-day-badge">{d.day || i + 1}</span>
+                                    {d.title}
+                                </div>
+                                <span className={`ai-itinerary-day-arrow${openDays[i] ? ' open' : ''}`}>▼</span>
+                            </div>
+                            {openDays[i] && (d.items || []).length > 0 && (
+                                <div className="ai-itinerary-day-items">
+                                    {d.items.map((item, j) => (
+                                        <div key={j} className="ai-itinerary-item">
+                                            {item.time && <span className="ai-itinerary-item-time">{item.time}</span>}
+                                            <div className="ai-itinerary-item-content">
+                                                <div className="ai-itinerary-item-activity">{item.activity}</div>
+                                                {item.tip && <div className="ai-itinerary-item-tip">💡 {item.tip}</div>}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        function ComparisonCard({ data }) {
+            if (!data.items || data.items.length < 2) return null;
+            const allAttrs = [...new Set(data.items.flatMap(item => (item.attrs || []).map(a => a.label)))];
+            return (
+                <div className="ai-comparison-card">
+                    {data.title && <div className="ai-comparison-title">⚖ {data.title}</div>}
+                    <div className="ai-comparison-table">
+                        <div className="ai-comparison-row">
+                            <div className="ai-comparison-cell" />
+                            {data.items.map((item, i) => (
+                                <div key={i} className={`ai-comparison-cell ai-comparison-cell-header${item.recommend ? ' recommend' : ''}`}>
+                                    {item.name}{item.recommend ? ' 👍' : ''}
+                                </div>
+                            ))}
+                        </div>
+                        {allAttrs.map((attrLabel, ri) => (
+                            <div key={ri} className="ai-comparison-row">
+                                <div className="ai-comparison-cell">{attrLabel}</div>
+                                {data.items.map((item, i) => {
+                                    const attr = (item.attrs || []).find(a => a.label === attrLabel);
+                                    return <div key={i} className="ai-comparison-cell">{attr ? attr.value : '-'}</div>;
+                                })}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        function TravelTipCard({ data }) {
+            const icons = { warning: '⚠', info: 'ℹ', success: '✓' };
+            const icon = icons[data.type] || icons.info;
+            return (
+                <div className={`ai-traveltip-card ${data.type || 'info'}`}>
+                    <div className="ai-traveltip-icon">{icon}</div>
+                    <div className="ai-traveltip-body">
+                        {data.title && <div className="ai-traveltip-title">{data.title}</div>}
+                        {data.content && <div className="ai-traveltip-content">{data.content}</div>}
+                    </div>
+                </div>
+            );
+        }
+
         function addFiles(files) {
             setAttachedFiles(prev => [...prev, ...files].slice(0, 3));
         }
@@ -1737,21 +1985,25 @@
             setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
         }
 
-        async function sendMessage() {
-            const text = inputText.trim();
-            if (!text && attachedFiles.length === 0) return;
+        async function sendMessage(continueParams) {
+            const isContinue = !!continueParams;
+            const text = isContinue ? '' : inputText.trim();
+            if (!isContinue && !text && attachedFiles.length === 0) return;
             if (loading) return;
 
-            const userMsg = { role: 'user', content: text, favorite: selectedFavorite, attachments: attachedFiles.map(f => ({ name: f.name, type: f.type })) };
-            setMessages(prev => [...prev, userMsg]);
-            setInputText('');
+            // Build user message (skip for continue mode)
+            if (!isContinue) {
+                const userMsg = { role: 'user', content: text, favorite: selectedFavorite, attachments: attachedFiles.map(f => ({ name: f.name, type: f.type })) };
+                setMessages(prev => [...prev, userMsg]);
+                setInputText('');
+            }
             setLoading(true);
             setStatusText('');
 
-            // Web search if enabled
+            // Web search if enabled (first turn only)
             let searchResults = '';
             let searchResultsRaw = null;
-            if (searchEnabled && text) {
+            if (!isContinue && searchEnabled && text) {
                 setStatusText('正在搜索互联网...');
                 try {
                     const sResp = await fetch('/api/web_search.php', {
@@ -1768,25 +2020,42 @@
             }
 
             const formData = new FormData();
-            if (text) formData.append('message', text);
-            if (selectedFavorite) formData.append('favorite', JSON.stringify(selectedFavorite));
-            if (sessionId) formData.append('session_id', sessionId);
-            if (searchResults) formData.append('search_results', searchResults);
-            if (searchResultsRaw) formData.append('search_results_json', JSON.stringify(searchResultsRaw));
-            if (userLocation) formData.append('user_lng', userLocation.lng);
-            if (userLocation) formData.append('user_lat', userLocation.lat);
-            attachedFiles.forEach(f => formData.append('attachments[]', f));
+            if (isContinue) {
+                formData.append('continue', '1');
+                formData.append('message', '继续');
+                formData.append('session_id', sessionId);
+                formData.append('previous_tool_results', JSON.stringify(continueParams.toolResults));
+            } else {
+                if (text) formData.append('message', text);
+                if (selectedFavorite) formData.append('favorite', JSON.stringify(selectedFavorite));
+                if (sessionId) formData.append('session_id', sessionId);
+                if (searchResults) formData.append('search_results', searchResults);
+                if (searchResultsRaw) formData.append('search_results_json', JSON.stringify(searchResultsRaw));
+                if (userLocation) formData.append('user_lng', userLocation.lng);
+                if (userLocation) formData.append('user_lat', userLocation.lat);
+                attachedFiles.forEach(f => formData.append('attachments[]', f));
+            }
             setAttachedFiles([]);
             setSelectedFavorite(null);
 
-            const aiMsgIdx = messages.length + 1;
-            setMessages(prev => [...prev, { role: 'ai', content: '', think: '', searchResults: searchResultsRaw }]);
+            const aiMsgIdx = messages.length + (isContinue ? 0 : 1);
+            const aiMsgTag = Date.now(); // unique tag to find this message in setMessages callbacks
+            setMessages(prev => [...prev, { role: 'ai', content: '', think: '', searchResults: searchResultsRaw, isToolContinuation: isContinue, _tag: aiMsgTag }]);
 
+            let fullText = '', fullThink = '';
+            const updateAiMsg = (updates) => {
+                setMessages(prev => {
+                    const n = [...prev];
+                    const idx = n.findIndex(m => m._tag === aiMsgTag);
+                    if (idx >= 0) n[idx] = { ...n[idx], ...updates };
+                    return n;
+                });
+            };
             try {
                 const resp = await fetch('/api/ai_chat_stream.php', { method: 'POST', body: formData });
                 const reader = resp.body.getReader();
                 const dec = new TextDecoder();
-                let buf = '', fullText = '', fullThink = '';
+                let buf = '';
 
                 const parseEvents = (chunk) => {
                     buf += chunk;
@@ -1810,10 +2079,10 @@
                                 setStatusText(d.message || '');
                             } else if (evtType === 'think') {
                                 fullThink += d.text || '';
-                                setMessages(prev => { const n = [...prev]; if (n[aiMsgIdx]) n[aiMsgIdx] = { ...n[aiMsgIdx], think: fullThink }; return n; });
+                                updateAiMsg({ think: fullThink });
                             } else if (evtType === 'delta') {
                                 fullText += d.text || '';
-                                setMessages(prev => { const n = [...prev]; if (n[aiMsgIdx]) n[aiMsgIdx] = { ...n[aiMsgIdx], content: fullText }; return n; });
+                                updateAiMsg({ content: fullText });
                             } else if (evtType === 'done') {
                                 if (d.session_id) setSessionId(d.session_id);
                                 setStatusText('');
@@ -1832,14 +2101,71 @@
                 }
 
                 if (fullText === '' && fullThink === '') {
-                    setMessages(prev => { const n = [...prev]; if (n[aiMsgIdx]) n[aiMsgIdx] = { ...n[aiMsgIdx], content: '暂无回答，请稍后重试' }; return n; });
+                    updateAiMsg({ content: '暂无回答，请稍后重试' });
                 }
             } catch {
                 message.error('网络错误，请重试');
-                setMessages(prev => { const n = [...prev]; if (n[aiMsgIdx]) n[aiMsgIdx] = { ...n[aiMsgIdx], content: '网络错误，请稍后重试' }; return n; });
+                updateAiMsg({ content: '网络错误，请稍后重试' });
             }
-            setLoading(false);
-            setStatusText('');
+
+            // After streaming completes, check for tool_calls in the response
+            const segments = parseContent(fullText);
+            const toolCalls = segments.filter(s => s.type === 'tool_call');
+
+            if (toolCalls.length > 0 && !isContinue) {
+                // Remove tool_call blocks from displayed text (they'll be shown as cards)
+                const cleanContent = segments
+                    .filter(s => s.type !== 'tool_call')
+                    .map(s => {
+                        if (s.type === 'text') return s.value;
+                        if (s.type === 'location') return '```location\n' + JSON.stringify(s.value) + '\n```';
+                        if (s.type === 'itinerary') return '```itinerary\n' + JSON.stringify(s.value) + '\n```';
+                        if (s.type === 'comparison') return '```comparison\n' + JSON.stringify(s.value) + '\n```';
+                        if (s.type === 'travel_tip') return '```travel_tip\n' + JSON.stringify(s.value) + '\n```';
+                        return '';
+                    }).join('\n\n');
+
+                // Update AI message with cleaned content
+                updateAiMsg({ content: cleanContent, hasToolCall: true });
+
+                // Execute each tool call (max 2)
+                const toolResults = [];
+                for (const tc of toolCalls.slice(0, 2)) {
+                    setLoading(true);
+                    setStatusText(`正在执行工具: ${tc.value.tool}...`);
+                    try {
+                        const tResp = await fetch('/api/ai_tool_exec.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ tool: tc.value.tool, params: tc.value.params }),
+                        });
+                        const tData = await tResp.json();
+                        toolResults.push({ tool: tc.value.tool, params: tc.value.params, result: tData.success ? tData.result : null, error: tData.error || null });
+                    } catch (e) {
+                        toolResults.push({ tool: tc.value.tool, params: tc.value.params, result: null, error: '网络错误' });
+                    }
+                }
+                setLoading(false);
+                setStatusText('');
+
+                // Append tool results as a system-style message (display only)
+                setMessages(prev => {
+                    const n = [...prev];
+                    // Add tool result entries
+                    for (const tr of toolResults) {
+                        n.push({ role: 'tool', tool: tr.tool, result: tr.result, error: tr.error });
+                    }
+                    return n;
+                });
+
+                // Auto-trigger continue with tool results
+                setTimeout(() => {
+                    sendMessage({ toolResults });
+                }, 300);
+            } else {
+                setLoading(false);
+                setStatusText('');
+            }
         }
 
         function handleKeyDown(e) {
@@ -1876,6 +2202,17 @@
                     )}
                     {messages.map((msg, i) => {
                         if (msg.role === 'ai' && !msg.content && !msg.think) return null;
+                        if (msg.role === 'tool') {
+                            return (
+                                <div key={i} className="ai-msg ai-msg-tool">
+                                    <div className="ai-msg-bubble" style={{background:'#f8fafc',border:'1px solid #e8ecf1'}}>
+                                        <ToolCallBanner tool={msg.tool} status={msg.error ? 'done' : 'done'} />
+                                        {msg.result ? <ToolResultCard tool={msg.tool} result={msg.result} /> :
+                                         <div style={{fontSize:12,color:'var(--text-muted)',padding:'4px 0'}}>⚠ {msg.error || '执行失败'}</div>}
+                                    </div>
+                                </div>
+                            );
+                        }
                         return (
                         <div key={i} className={`ai-msg ai-msg-${msg.role}`}>
                             <div className="ai-msg-bubble">
@@ -1894,10 +2231,14 @@
                                                 {expandedThinks[i] && <div className="ai-think-content">{msg.think}</div>}
                                             </div>
                                         )}
-                                        {msg.content ? parseContent(msg.content).map((seg, si) =>
-                                            seg.type === 'text' ? <div key={si} className="ai-msg-content" dangerouslySetInnerHTML={renderMd(seg.value)} />
-                                            : <LocationCard key={si} loc={seg.value} />
-                                        ) : msg.think ? <div className="ai-status">正在生成回答...</div> : null}
+                                        {msg.content ? parseContent(msg.content).map((seg, si) => {
+                                            if (seg.type === 'text') return <div key={si} className="ai-msg-content" dangerouslySetInnerHTML={renderMd(seg.value)} />;
+                                            if (seg.type === 'location') return <LocationCard key={si} loc={seg.value} />;
+                                            if (seg.type === 'itinerary') return <ItineraryCard key={si} data={seg.value} />;
+                                            if (seg.type === 'comparison') return <ComparisonCard key={si} data={seg.value} />;
+                                            if (seg.type === 'travel_tip') return <TravelTipCard key={si} data={seg.value} />;
+                                            return null;
+                                        }) : msg.think ? <div className="ai-status">正在生成回答...</div> : null}
                                         {msg.searchResults && msg.searchResults.length > 0 && (
                                             <div className={`ai-search-results${expandedSearch[i] ? ' expanded' : ''}`}>
                                                 <div className="ai-search-toggle" onClick={() => setExpandedSearch(p => ({ ...p, [i]: !p[i] }))}>
@@ -1925,7 +2266,7 @@
                     })}
                     {loading && (() => {
                         const lastAi = [...messages].reverse().find(m => m.role === 'ai');
-                        if (lastAi && (lastAi.content || lastAi.think)) return null;
+                        if (lastAi && (lastAi.content || lastAi.think) && !lastAi.isToolContinuation) return null;
                         return (
                             <div className="ai-msg ai-msg-ai">
                                 <div className="ai-msg-bubble">
