@@ -1232,16 +1232,16 @@
                         tryIPGeolocation();
                     }
 
-                    // Tier 2: ip-api.com (free, no key needed)
+                    // Tier 2: Free IP geolocation (HTTPS supported, no key needed)
                     function tryIPGeolocation() {
                         geoLog({ event: 'ipapi_attempt', step: 'ipapi' });
-                        fetch('https://ip-api.com/json/?fields=status,message,lat,lon,city,regionName,country,query')
+                        fetch('https://ipwho.is/')
                             .then(r => r.json())
                             .then(data => {
-                                if (data.status === 'success' && data.lat != null && data.lon != null) {
-                                    geoLog({ event: 'ipapi_ok', step: 'ipapi', lng: data.lon, lat: data.lat, detail: 'city=' + data.city + ' ip=' + data.query });
+                                if (data.success !== false && data.latitude != null && data.longitude != null) {
+                                    geoLog({ event: 'ipapi_ok', step: 'ipapi', lng: data.longitude, lat: data.latitude, detail: 'city=' + (data.city||'') + ' ip=' + (data.ip||'') });
                                     clearTimeout(hardTimer);
-                                    finish({ lng: data.lon, lat: data.lat, type: 'ip' });
+                                    finish({ lng: data.longitude, lat: data.latitude, type: 'ip' });
                                 } else {
                                     geoLog({ event: 'ipapi_fail', step: 'ipapi', error: data.message || 'no data' });
                                     tryAMapCitySearch();
@@ -1329,16 +1329,16 @@
                 refreshIPFallback();
             }
 
-            // Tier 2: ip-api.com
+            // Tier 2: Free IP geolocation (HTTPS supported)
             function refreshIPFallback() {
                 geoLog({ event: 'refresh_ipapi', step: 'refresh' });
-                fetch('https://ip-api.com/json/?fields=status,message,lat,lon,city,regionName,country,query')
+                fetch('https://ipwho.is/')
                     .then(r => r.json())
                     .then(data => {
-                        if (data.status === 'success' && data.lat != null && data.lon != null) {
-                            geoLog({ event: 'refresh_ipapi_ok', step: 'refresh', lng: data.lon, lat: data.lat });
+                        if (data.success !== false && data.latitude != null && data.longitude != null) {
+                            geoLog({ event: 'refresh_ipapi_ok', step: 'refresh', lng: data.longitude, lat: data.latitude });
                             clearTimeout(hardTimer);
-                            finish('ip', 'IP 定位', data.lon, data.lat);
+                            finish('ip', 'IP 定位', data.longitude, data.latitude);
                         } else {
                             refreshCitySearch();
                         }
