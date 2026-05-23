@@ -323,8 +323,6 @@
         .sub-empty-icon { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, rgba(21,101,239,0.1), rgba(13,148,136,0.1)); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 28px; color: var(--primary); }
         .sub-empty h3 { font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; }
         .sub-empty p { font-size: 14px; color: var(--text-secondary); line-height: 1.6; }
-        .debug-log-container { -webkit-overflow-scrolling: touch; }
-        .debug-log-item:last-child { border-bottom: none !important; }
         .settings-section { margin-bottom: 24px; }
         .settings-section-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; padding-left: 4px; }
         .settings-card { background: var(--surface); border-radius: 16px; padding: 16px; box-shadow: 0 2px 12px rgba(15,20,55,0.06); }
@@ -490,29 +488,6 @@
 
     const RECAPTCHA_SITE_KEY = '6LeBLvcsAAAAAANaL5q8z4tVmVu1QPbrzarCBeoi';
     const TOKEN = { primary: '#1565EF', accent: '#0D9488', bgStart: '#0F1E3D', bgMid: '#15305A', bgEnd: '#0A1628' };
-
-    const __debugStore = {
-        enabled: localStorage.getItem('umap_debug_mode') === '1',
-        logs: [],
-        push(type, msg, extra) {
-            const item = {
-                t: new Date().toISOString(),
-                type,
-                msg,
-                extra: extra ? JSON.stringify(extra) : ''
-            };
-            this.logs.push(item);
-            if (this.logs.length > 500) this.logs.shift();
-            if (this.enabled) {
-                console.log('[UMAP-DEBUG]', item.t, type, msg, extra || '');
-                window.dispatchEvent(new CustomEvent('umap-debug-log', { detail: item }));
-            }
-        }
-    };
-
-    function debugLog(type, msg, extra) {
-        __debugStore.push(type, msg, extra);
-    }
 
     const TIER_CONFIG = {
         quick: { label: '初步筛选', tags: 25, min: 10, desc: '适合快速体验 (25个标签, 至少选10个)' },
@@ -1126,7 +1101,6 @@
                 try {
                     setLocStatus('loading');
                     setLocLabel('定位中...');
-                    debugLog('init', 'fetching config');
 
                     const cfgResp = await fetch('/api/amap_jsapi_config.php');
                     const cfgData = await cfgResp.json();
@@ -1139,7 +1113,6 @@
                         window._AMapSecurityConfig = { securityJsCode: cfg.securityJsCode };
                     }
 
-                    debugLog('init', 'loading AMap SDK');
                     const AMap = await window.AMapLoader.load({
                         key: cfg.key,
                         version: '2.0',
@@ -1148,17 +1121,12 @@
                     if (destroyed) return;
                     AMap.getConfig().appname = 'amap-jsapi-skill';
                     AMapRef.current = AMap;
-                    debugLog('init', 'SDK loaded, starting locate');
 
-                    // 第二步：先定位拿坐标
                     const coords = await getCoordinates(AMap);
                     if (destroyed) return;
-                    debugLog('init', 'coords obtained', coords);
 
-                    // 第三步：拿到坐标后再创建地图
                     const center = coords ? [coords.lng, coords.lat] : [116.397, 39.908];
                     const zoom = coords ? 14 : 5;
-                    debugLog('init', 'creating map', { center, zoom });
 
                     const map = new AMap.Map(mapContainerRef.current, {
                         zoom,
@@ -1177,24 +1145,17 @@
                         setLocLabel('定位失败');
                     }
                     setRefreshing(false);
-                    debugLog('init', 'done');
                 } catch (e) {
-                    debugLog('init', 'error', { msg: e.message });
                     if (!destroyed) { setLocStatus('failed'); setLocLabel('地图加载失败'); setRefreshing(false); }
                 }
             }
 
-            // 获取坐标：先尝试GPS，失败则IP定位
             function getCoordinates(AMap) {
                 return new Promise((resolve) => {
                     let done = false;
                     const finish = (result) => { if (done) return; done = true; resolve(result); };
 
-                    // 硬超时9秒
-                    const hardTimer = setTimeout(() => {
-                        debugLog('locate', 'hard_timeout');
-                        finish(null);
-                    }, 9000);
+                    const hardTimer = setTimeout(() => finish(null), 9000);
 
                     const geo = new AMap.Geolocation({
                         enableHighAccuracy: true,
@@ -1206,20 +1167,15 @@
                         showCircle: false,
                         panToLocation: false,
                     });
-                    debugLog('locate', 'geo_request');
 
                     geo.getCurrentPosition((status, result) => {
-                        debugLog('locate', 'geo_result', { status, info: result?.info || '' });
                         if (status === 'complete' && result && result.position) {
                             clearTimeout(hardTimer);
                             finish({ lng: result.position.lng, lat: result.position.lat, type: 'gps' });
                         } else {
-                            debugLog('locate', 'gps_failed_trying_ip');
-                            // GPS失败，用IP定位
                             const city = new AMap.CitySearch();
                             city.getLocalCity((s2, r2) => {
                                 clearTimeout(hardTimer);
-                                debugLog('locate', 'ip_result', { status: s2, hasBounds: !!r2?.bounds });
                                 if (s2 === 'complete' && r2 && r2.bounds) {
                                     const center = r2.bounds.getCenter();
                                     finish({ lng: center.getLng(), lat: center.getLat(), type: 'ip' });
@@ -1247,7 +1203,6 @@
             setRefreshing(true);
             setLocStatus('loading');
             setLocLabel('定位中...');
-            debugLog('refresh', 'start');
 
             let done = false;
             const finish = (status, label, lng, lat) => {
@@ -1261,11 +1216,9 @@
                     placeMarker(AMap, map, lng, lat);
                     if (onLocationUpdate) onLocationUpdate({ lng, lat });
                 }
-                debugLog('refresh', 'finish', { status, label });
             };
 
             const hardTimer = setTimeout(() => {
-                debugLog('refresh', 'hard_timeout');
                 const city = new AMap.CitySearch();
                 city.getLocalCity((s, r) => {
                     if (done) return;
@@ -1284,7 +1237,6 @@
                 showButton: false, showMarker: false, showCircle: false, panToLocation: false,
             });
             geo.getCurrentPosition((status, result) => {
-                debugLog('refresh', 'geo_result', { status });
                 if (status === 'complete' && result?.position) {
                     clearTimeout(hardTimer);
                     finish('gps', 'GPS 定位', result.position.lng, result.position.lat);
@@ -1878,24 +1830,12 @@
         );
     }
 
-    function ProfileTab({ user, onLogout, onGoPrefs, onNavigate, debugEnabled, onDebugToggle }) {
-        const tapRef = React.useRef({ count: 0, timer: null });
-        function handleAvatarTap() {
-            const t = tapRef.current;
-            t.count++;
-            clearTimeout(t.timer);
-            if (t.count >= 3) {
-                t.count = 0;
-                onDebugToggle();
-            } else {
-                t.timer = setTimeout(() => { t.count = 0; }, 800);
-            }
-        }
+    function ProfileTab({ user, onLogout, onGoPrefs, onNavigate }) {
         async function handleLogout() { await fetch('/api/logout.php'); onLogout(); }
         return (
             <div className="profile-content">
                 <div className="profile-hero">
-                    <div className="profile-avatar" onClick={handleAvatarTap}>{user.username[0].toUpperCase()}</div>
+                    <div className="profile-avatar">{user.username[0].toUpperCase()}</div>
                     <div className="profile-name">{user.username}</div>
                     <div className="profile-email">{user.email}</div>
                     <div className="profile-verified">
@@ -2289,82 +2229,6 @@
         );
     }
 
-    // ==================== Debug Page ====================
-    function DebugPage({ onBack }) {
-        const [logs, setLogs] = useState([]);
-        const endRef = useRef(null);
-        const containerRef = useRef(null);
-
-        useEffect(() => {
-            // 加载已有日志
-            setLogs([...(__debugStore.logs || [])]);
-            const handler = (e) => {
-                setLogs(prev => {
-                    const next = [...prev, e.detail];
-                    return next.length > 500 ? next.slice(-500) : next;
-                });
-            };
-            window.addEventListener('umap-debug-log', handler);
-            return () => window.removeEventListener('umap-debug-log', handler);
-        }, []);
-
-        useEffect(() => {
-            if (endRef.current) endRef.current.scrollIntoView({ behavior: 'smooth' });
-        }, [logs]);
-
-        function clearLogs() {
-            __debugStore.logs = [];
-            setLogs([]);
-            debugLog('debug', 'logs_cleared');
-        }
-
-        function exportLogs() {
-            const text = logs.map(l => `${l.t} [${l.type}] ${l.msg} ${l.extra || ''}`).join('\n');
-            const blob = new Blob([text], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = `umap-debug-${Date.now()}.log`; a.click();
-            URL.revokeObjectURL(url);
-        }
-
-        const typeColor = {
-            locate: '#3b82f6', init: '#8b5cf6', debug: '#10b981', refresh: '#f59e0b',
-            error: '#ef4444', network: '#06b6d4',
-        };
-
-        return (
-            <div className="sub-page">
-                <div className="sub-page-header">
-                    <button className="sub-page-back" onClick={onBack}><ArrowLeftOutlined /></button>
-                    <h2>调试日志</h2>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <button className="sub-page-back" onClick={exportLogs} title="导出日志" style={{ fontSize: 12 }}>导出</button>
-                        <button className="sub-page-back" onClick={clearLogs} title="清空日志" style={{ fontSize: 12 }}>清空</button>
-                    </div>
-                </div>
-                <div ref={containerRef} className="debug-log-container" style={{
-                    padding: '0 12px 12px', overflowY: 'auto', flex: 1, fontFamily: 'monospace', fontSize: 12, lineHeight: 1.6,
-                }}>
-                    {logs.length === 0 && <div style={{ color: '#999', textAlign: 'center', marginTop: 40 }}>暂无日志</div>}
-                    {logs.map((l, i) => (
-                        <div key={i} className="debug-log-item" style={{
-                            borderBottom: '1px solid #f0f0f0', padding: '6px 0', wordBreak: 'break-all',
-                        }}>
-                            <span style={{ color: '#999', marginRight: 6 }}>{l.t.split('T')[1]?.replace('Z', '')}</span>
-                            <span style={{
-                                color: typeColor[l.type] || '#666', fontWeight: 600, marginRight: 6,
-                                background: (typeColor[l.type] || '#666') + '18', padding: '1px 5px', borderRadius: 3,
-                            }}>{l.type}</span>
-                            <span style={{ color: '#333' }}>{l.msg}</span>
-                            {l.extra && <span style={{ color: '#888', marginLeft: 6 }}>{l.extra}</span>}
-                        </div>
-                    ))}
-                    <div ref={endRef} />
-                </div>
-            </div>
-        );
-    }
-
     // ==================== City Search Page ====================
     const SEARCH_STEPS = [
         { id: 1, label: 'AI 正在分析喜好' },
@@ -2666,7 +2530,6 @@
         const [headerSearch, setHeaderSearch] = useState('');
         const [citySearchQuery, setCitySearchQuery] = useState('');
         const [userLocation, setUserLocation] = useState(null);
-        const [debugEnabled, setDebugEnabled] = useState(window.__debugStore?.enabled || false);
 
         useEffect(() => {
             if (user && user.has_preferences === false) {
@@ -2688,15 +2551,6 @@
         if (subPage === 'account') return <AccountSettingsPage user={user} onBack={() => setSubPage(null)} />;
         if (subPage === 'help') return <HelpPage onBack={() => setSubPage(null)} />;
         if (subPage === 'citySearch') return <CitySearchPage initialCity={citySearchQuery} onBack={() => { setSubPage(null); setCitySearchQuery(''); }} />;
-        if (subPage === 'debug') return <DebugPage onBack={() => setSubPage(null)} />;
-
-        function toggleDebug() {
-            const next = !debugEnabled;
-            setDebugEnabled(next);
-            window.__debugStore.enabled = next;
-            localStorage.setItem('umap_debug_mode', next ? '1' : '0');
-            debugLog('debug', next ? 'enabled' : 'disabled');
-        }
 
         function handleHeaderSearchKey(e) {
             if (e.key === 'Enter' && headerSearch.trim()) {
@@ -2738,7 +2592,7 @@
                 <div className="app-content">
                     {activeTab === 'home' && <HomeTab user={user} onGoPrefs={() => setShowPrefs(true)} onNavigate={setSubPage} onLocationUpdate={setUserLocation} />}
                     {activeTab === 'ai' && <AITab userLocation={userLocation} />}
-                    {activeTab === 'profile' && <ProfileTab user={user} onLogout={onLogout} onGoPrefs={() => setShowPrefs(true)} onNavigate={setSubPage} debugEnabled={debugEnabled} onDebugToggle={toggleDebug} />}
+                    {activeTab === 'profile' && <ProfileTab user={user} onLogout={onLogout} onGoPrefs={() => setShowPrefs(true)} onNavigate={setSubPage} />}
                 </div>
 
                 <div className="bottom-tab-bar">
@@ -2750,12 +2604,6 @@
                         <span className="tab-icon"><RobotOutlined /></span>
                         <span className="tab-label">AI</span>
                     </button>
-                    {debugEnabled && (
-                        <button className="bottom-tab" onClick={() => setSubPage('debug')}>
-                            <span className="tab-icon"><BugOutlined /></span>
-                            <span className="tab-label">调试</span>
-                        </button>
-                    )}
                     <button className={`bottom-tab${activeTab === 'profile' ? ' active' : ''}`} onClick={() => setActiveTab('profile')}>
                         <span className="tab-icon"><UserOutlined /></span>
                         <span className="tab-label">我的</span>
