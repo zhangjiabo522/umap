@@ -2245,10 +2245,11 @@
                 if (chartInstance.current) { chartInstance.current.dispose(); chartInstance.current = null; }
             };
             async function initChart() {
+                let geoData;
                 try {
-                    const geoRes = await fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json');
+                    const geoRes = await fetch('/assets/china_provinces.json');
                     if (!geoRes.ok) throw new Error('GeoJSON fetch failed');
-                    const geoData = await geoRes.json();
+                    geoData = await geoRes.json();
                     if (destroyed) return;
                     window.echarts.registerMap('china', geoData);
                 } catch {
@@ -2299,11 +2300,6 @@
             }
         }, [loading, provinces]);
 
-        const provinceVisits = {};
-        records.forEach(r => {
-            if (r.province) provinceVisits[r.province] = (provinceVisits[r.province] || 0) + 1;
-        });
-
         return (
             <div className="sub-page">
                 <div className="sub-page-header">
@@ -2320,19 +2316,14 @@
                                     <div className="footprint-stat-num">{provinces.length}</div>
                                     <div className="footprint-stat-label">已探访省份</div>
                                 </div>
-                                <div className="footprint-stat-card">
-                                    <div className="footprint-stat-num">{records.length}</div>
-                                    <div className="footprint-stat-label">总足迹次数</div>
-                                </div>
                             </div>
                             <div ref={chartRef} className="footprint-map" />
                             {provinces.length > 0 && (
                                 <div className="footprint-province-list">
                                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', padding: '16px 0 10px' }}>已探访省份</div>
-                                    {provinces.sort((a, b) => (provinceVisits[b] || 0) - (provinceVisits[a] || 0)).map(p => (
+                                    {provinces.map(p => (
                                         <div key={p} className="footprint-province-item">
                                             <span className="footprint-province-name">{p}</span>
-                                            <span className="footprint-province-count">{provinceVisits[p] || 0} 次到访</span>
                                         </div>
                                     ))}
                                 </div>
