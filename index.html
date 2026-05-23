@@ -2066,6 +2066,8 @@
             setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
         }
 
+        const aiContentRef = useRef(''); // tracks current AI message content for append
+
         async function sendMessage(continueParams) {
             const isContinue = !!continueParams;
             const text = isContinue ? '' : inputText.trim();
@@ -2119,11 +2121,17 @@
             setAttachedFiles([]);
             setSelectedFavorite(null);
 
-            const aiMsgIdx = messages.length + (isContinue ? 0 : 1);
-            const aiMsgTag = Date.now(); // unique tag to find this message in setMessages callbacks
-            setMessages(prev => [...prev, { role: 'ai', content: '', think: '', searchResults: searchResultsRaw, isToolContinuation: isContinue, _tag: aiMsgTag }]);
+            // Use or create AI message tag
+            const aiMsgTag = isContinue ? continueParams.aiMsgTag : Date.now();
+            if (!isContinue) {
+                aiContentRef.current = '';
+                setMessages(prev => [...prev, { role: 'ai', content: '', think: '', searchResults: searchResultsRaw, toolResults: [], _tag: aiMsgTag }]);
+            }
 
-            let fullText = '', fullThink = '';
+            // For continue, prepend existing content + tool divider
+            const priorContent = isContinue ? aiContentRef.current : '';
+            let fullText = priorContent ? priorContent + '\n\n---\n\n' : '';
+            let fullThink = '';
             const updateAiMsg = (updates) => {
                 setMessages(prev => {
                     const n = [...prev];
@@ -2132,6 +2140,7 @@
                     return n;
                 });
             };
+
             try {
                 const resp = await fetch('/api/ai_chat_stream.php', { method: 'POST', body: formData });
                 const reader = resp.body.getReader();
@@ -2182,68 +2191,71 @@
                     parseEvents(dec.decode(value, { stream: true }));
                 }
 
-                if (fullText === '' && fullThink === '') {
-                    updateAiMsg({ content: '暂无回答，请稍后重试' });
+                if (fullText === priorContent + '\n\n---\n\n' && fullThink === '') {
+                    updateAiMsg({ content: priorContent || '暂无回答，请稍后重试' });
                 }
             } catch {
                 message.error('网络错误，请重试');
-                updateAiMsg({ content: '网络错误，请稍后重试' });
+                if (!isContinue) updateAiMsg({ content: '网络错误，请稍后重试' });
             }
 
-            // After streaming completes, check for tool_calls in the response
-            const segments = parseContent(fullText);
-            const toolCalls = segments.filter(s => s.type === 'tool_call');
+            // Track final content
+            aiContentRef.current = fullText;
 
-            if (toolCalls.length > 0 && !isContinue) {
-                // Remove tool_call blocks from displayed text (they'll be shown as cards)
-                const cleanContent = segments
-                    .filter(s => s.type !== 'tool_call')
-                    .map(s => {
-                        if (s.type === 'text') return s.value;
-                        if (s.type === 'location') return '```location\n' + JSON.stringify(s.value) + '\n```';
-                        if (s.type === 'itinerary') return '```itinerary\n' + JSON.stringify(s.value) + '\n```';
-                        if (s.type === 'comparison') return '```comparison\n' + JSON.stringify(s.value) + '\n```';
-                        if (s.type === 'travel_tip') return '```travel_tip\n' + JSON.stringify(s.value) + '\n```';
-                        return '';
-                    }).join('\n\n');
+            // After streaming, check for tool_calls (only on initial response, not continue)
+            if (!isContinue) {
+                const segments = parseContent(fullText);
+                const toolCalls = segments.filter(s => s.type === 'tool_call');
 
-                // Update AI message with cleaned content
-                updateAiMsg({ content: cleanContent, hasToolCall: true });
+                if (toolCalls.length > 0) {
+                    // Remove tool_call blocks from displayed text
+                    const cleanContent = segments
+                        .filter(s => s.type !== 'tool_call')
+                        .map(s => {
+                            if (s.type === 'text') return s.value;
+                            if (s.type === 'location') return '```location\n' + JSON.stringify(s.value) + '\n```';
+                            if (s.type === 'itinerary') return '```itinerary\n' + JSON.stringify(s.value) + '\n```';
+                            if (s.type === 'comparison') return '```comparison\n' + JSON.stringify(s.value) + '\n```';
+                            if (s.type === 'travel_tip') return '```travel_tip\n' + JSON.stringify(s.value) + '\n```';
+                            return '';
+                        }).join('\n\n');
 
-                // Execute each tool call (max 2)
-                const toolResults = [];
-                for (const tc of toolCalls.slice(0, 2)) {
-                    setLoading(true);
-                    setStatusText(`正在执行工具: ${tc.value.tool}...`);
-                    try {
-                        const tResp = await fetch('/api/ai_tool_exec.php', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ tool: tc.value.tool, params: tc.value.params }),
-                        });
-                        const tData = await tResp.json();
-                        toolResults.push({ tool: tc.value.tool, params: tc.value.params, result: tData.success ? tData.result : null, error: tData.error || null });
-                    } catch (e) {
-                        toolResults.push({ tool: tc.value.tool, params: tc.value.params, result: null, error: '网络错误' });
+                    updateAiMsg({ content: cleanContent });
+                    aiContentRef.current = cleanContent;
+
+                    // Execute each tool call
+                    const toolResults = [];
+                    for (const tc of toolCalls.slice(0, 1)) {
+                        setLoading(true);
+                        setStatusText(`正在执行: ${tc.value.tool}...`);
+                        // Append loading banner to message content
+                        updateAiMsg({ toolResults: [{ tool: tc.value.tool, status: 'loading' }] });
+                        try {
+                            const tResp = await fetch('/api/ai_tool_exec.php', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ tool: tc.value.tool, params: tc.value.params }),
+                            });
+                            const tData = await tResp.json();
+                            toolResults.push({ tool: tc.value.tool, params: tc.value.params, result: tData.success ? tData.result : null, error: tData.error || null, status: 'done' });
+                        } catch (e) {
+                            toolResults.push({ tool: tc.value.tool, params: tc.value.params, result: null, error: '网络错误', status: 'done' });
+                        }
                     }
+                    setLoading(false);
+                    setStatusText('');
+
+                    // Store tool results in the SAME AI message
+                    updateAiMsg({ toolResults });
+
+                    // Auto-trigger continue with tool results into same message
+                    setTimeout(() => {
+                        sendMessage({ toolResults, aiMsgTag });
+                    }, 300);
+                } else {
+                    setLoading(false);
+                    setStatusText('');
                 }
-                setLoading(false);
-                setStatusText('');
-
-                // Append tool results as a system-style message (display only)
-                setMessages(prev => {
-                    const n = [...prev];
-                    // Add tool result entries
-                    for (const tr of toolResults) {
-                        n.push({ role: 'tool', tool: tr.tool, result: tr.result, error: tr.error });
-                    }
-                    return n;
-                });
-
-                // Auto-trigger continue with tool results
-                setTimeout(() => {
-                    sendMessage({ toolResults });
-                }, 300);
             } else {
                 setLoading(false);
                 setStatusText('');
@@ -2283,18 +2295,7 @@
                         </div>
                     )}
                     {messages.map((msg, i) => {
-                        if (msg.role === 'ai' && !msg.content && !msg.think) return null;
-                        if (msg.role === 'tool') {
-                            return (
-                                <div key={i} className="ai-msg ai-msg-tool">
-                                    <div className="ai-msg-bubble" style={{background:'#f8fafc',border:'1px solid #e8ecf1'}}>
-                                        <ToolCallBanner tool={msg.tool} status={msg.error ? 'done' : 'done'} />
-                                        {msg.result ? <ToolResultCard tool={msg.tool} result={msg.result} /> :
-                                         <div style={{fontSize:12,color:'var(--text-muted)',padding:'4px 0'}}>⚠ {msg.error || '执行失败'}</div>}
-                                    </div>
-                                </div>
-                            );
-                        }
+                        if (msg.role === 'ai' && !msg.content && !msg.think && !(msg.toolResults || []).length) return null;
                         return (
                         <div key={i} className={`ai-msg ai-msg-${msg.role}`}>
                             <div className="ai-msg-bubble">
@@ -2313,6 +2314,25 @@
                                                 {expandedThinks[i] && <div className="ai-think-content">{msg.think}</div>}
                                             </div>
                                         )}
+                                        {(msg.toolResults || []).length > 0 && (
+                                            <div className={`ai-think${expandedThinks['tool_' + i] ? ' expanded' : ''}`} style={{borderColor:'rgba(13,148,136,0.2)',background:'rgba(13,148,136,0.04)'}}>
+                                                <div className="ai-think-toggle" onClick={() => setExpandedThinks(p => ({ ...p, ['tool_' + i]: !p['tool_' + i] }))} style={{color:'var(--accent)'}}>
+                                                    <span className="ai-think-label" style={{color:'var(--accent)'}}>🔧 工具调用详情 ({msg.toolResults.length})</span>
+                                                    <span className="ai-think-arrow">{expandedThinks['tool_' + i] ? '▲' : '▼'}</span>
+                                                </div>
+                                                {expandedThinks['tool_' + i] && (
+                                                    <div className="ai-think-content">
+                                                        {msg.toolResults.map((tr, ti) => (
+                                                            <div key={ti} style={{marginBottom:ti < msg.toolResults.length-1 ? 12 : 0}}>
+                                                                <ToolCallBanner tool={tr.tool} status={tr.status || 'done'} />
+                                                                {tr.result && <ToolResultCard tool={tr.tool} result={tr.result} />}
+                                                                {tr.error && <div style={{fontSize:12,color:'#DE345D',padding:'4px 0'}}>⚠ {tr.error}</div>}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                         {msg.content ? parseContent(msg.content).map((seg, si) => {
                                             if (seg.type === 'text') return <div key={si} className="ai-msg-content" dangerouslySetInnerHTML={renderMd(seg.value)} />;
                                             if (seg.type === 'location') return <LocationCard key={si} loc={seg.value} />;
@@ -2320,7 +2340,7 @@
                                             if (seg.type === 'comparison') return <ComparisonCard key={si} data={seg.value} />;
                                             if (seg.type === 'travel_tip') return <TravelTipCard key={si} data={seg.value} />;
                                             return null;
-                                        }) : msg.think ? <div className="ai-status">正在生成回答...</div> : null}
+                                        }) : (msg.think || (msg.toolResults || []).length > 0) ? (!msg.content ? <div className="ai-status">...</div> : null) : null}
                                         {msg.searchResults && msg.searchResults.length > 0 && (
                                             <div className={`ai-search-results${expandedSearch[i] ? ' expanded' : ''}`}>
                                                 <div className="ai-search-toggle" onClick={() => setExpandedSearch(p => ({ ...p, [i]: !p[i] }))}>
@@ -2349,13 +2369,7 @@
                     {loading && (() => {
                         const lastAi = [...messages].reverse().find(m => m.role === 'ai');
                         if (!lastAi) return null;
-                        // Hide loading when AI already responded with content
-                        if (!lastAi.isToolContinuation && (lastAi.content || lastAi.think)) return null;
-                        // Hide loading during tool continuation if previous AI message has content
-                        if (lastAi.isToolContinuation && !lastAi.content && !lastAi.think) {
-                            const prevAi = [...messages].reverse().find(m => m.role === 'ai' && m !== lastAi);
-                            if (prevAi && prevAi.content) return null;
-                        }
+                        if (lastAi.content || lastAi.think || (lastAi.toolResults || []).length > 0) return null;
                         return (
                             <div className="ai-msg ai-msg-ai">
                                 <div className="ai-msg-bubble">
