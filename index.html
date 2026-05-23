@@ -22,20 +22,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@ant-design/icons@5.2.6/dist/index.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.6/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
-    <script>
-    (function() {
-        var hosts = ['recaptcha.net', 'www.recaptcha.net', 'recaptcha.google.cn'];
-        var idx = 0;
-        function load() {
-            var s = document.createElement('script');
-            s.src = 'https://' + hosts[idx] + '/recaptcha/api.js?render=explicit';
-            s.async = true; s.defer = true;
-            s.onerror = function() { idx++; if (idx < hosts.length) load(); };
-            document.head.appendChild(s);
-        }
-        load();
-    })();
-    </script>
+    <script src="/api/recaptcha-js.php?render=explicit" async defer onerror=""></script>
     <style>
         :root {
             --primary: #1565EF; --primary-dark: #1254C4; --accent: #0D9488;
@@ -591,13 +578,13 @@
                 }, 200);
             }
 
-            // 5 second timeout - switch to arithmetic
+            // 2 second timeout - switch to arithmetic quickly
             timeoutId = setTimeout(() => {
                 if (!rendered) {
                     clearInterval(intervalId);
                     setUseArithmetic(true);
                 }
-            }, 5000);
+            }, 2000);
 
             return () => {
                 clearTimeout(timeoutId);
@@ -1116,33 +1103,44 @@
                 setRefreshing(false);
             }
 
-            // 使用AMap.Geolocation — 融合GPS+IP定位，自动坐标转换
-            const geolocation = new AMap.Geolocation({
-                enableHighAccuracy: true,
-                timeout: 10000,
-                zoomToAccuracy: false,
-            });
+            function amapFallback() {
+                const geolocation = new AMap.Geolocation({ enableHighAccuracy: false, timeout: 8000 });
+                geolocation.getCurrentPosition((status, result) => {
+                    if (status === 'complete') {
+                        applyLngLat(result.position.lng, result.position.lat, 'ip');
+                    } else {
+                        new AMap.CitySearch().getLocalCity((s2, r2) => {
+                            if (s2 === 'complete' && r2.bounds) {
+                                map.setBounds(r2.bounds);
+                                const c = r2.bounds.getCenter();
+                                applyLngLat(c.lng, c.lat, 'ip');
+                            } else {
+                                setLocStatus('failed');
+                                setLocLabel('定位失败');
+                                setRefreshing(false);
+                            }
+                        });
+                    }
+                });
+            }
 
-            geolocation.getCurrentPosition((status, result) => {
-                if (status === 'complete') {
-                    const { lng, lat, accuracy } = result.position;
-                    const type = accuracy <= 100 ? 'gps' : 'ip';
-                    applyLngLat(lng, lat, type);
-                } else {
-                    // Geolocation失败，用CitySearch保底
-                    new AMap.CitySearch().getLocalCity((s2, r2) => {
-                        if (s2 === 'complete' && r2.bounds) {
-                            map.setBounds(r2.bounds);
-                            const center = r2.bounds.getCenter();
-                            applyLngLat(center.lng, center.lat, 'ip');
+            // 优先用navigator.geolocation触发系统权限弹窗
+            if (!navigator.geolocation) { amapFallback(); return; }
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const { longitude: lng, latitude: lat, accuracy } = pos.coords;
+                    AMap.convertFrom([lng, lat], 'gps', (status, result) => {
+                        if (status === 'complete' && result.locations?.[0]) {
+                            applyLngLat(result.locations[0][0], result.locations[0][1], accuracy <= 100 ? 'gps' : 'ip');
                         } else {
-                            setLocStatus('failed');
-                            setLocLabel('定位失败');
-                            setRefreshing(false);
+                            applyLngLat(lng, lat, 'ip');
                         }
                     });
-                }
-            });
+                },
+                () => { amapFallback(); },
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+            );
         }
 
         useEffect(() => {
