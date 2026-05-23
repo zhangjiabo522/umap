@@ -1099,8 +1099,8 @@
             if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
 
             let applied = false;
-            let gpsFailed = false;
-            let ipFailed = false;
+            let gpsDone = false;
+            let ipDone = false;
 
             function applyLngLat(lng, lat, type) {
                 if (applied && type !== 'gps') return;
@@ -1123,57 +1123,101 @@
             }
 
             function applyGpsCoords(lng, lat, accuracy) {
-                AMap.convertFrom([lng, lat], 'gps', (status, result) => {
-                    if (status === 'complete' && result.locations?.[0]) {
-                        applyLngLat(result.locations[0][0], result.locations[0][1], accuracy <= 100 ? 'gps' : 'ip');
-                    } else {
-                        applyLngLat(lng, lat, 'ip');
-                    }
-                });
+                try {
+                    AMap.convertFrom([lng, lat], 'gps', (status, result) => {
+                        if (applied) return;
+                        if (status === 'complete' && result.locations?.[0]) {
+                            applyLngLat(result.locations[0][0], result.locations[0][1], accuracy <= 100 ? 'gps' : 'ip');
+                        } else {
+                            applyLngLat(lng, lat, 'ip');
+                        }
+                    });
+                } catch {
+                    applyLngLat(lng, lat, 'ip');
+                }
             }
 
-            function checkAllFailed() {
-                if (gpsFailed && ipFailed && !applied) {
+            function checkDone() {
+                if (gpsDone && ipDone && !applied) {
                     setLocStatus('failed');
                     setLocLabel('定位失败');
                     setRefreshing(false);
                 }
             }
 
-            // 1) IP定位 — 快速并行，保底
-            new AMap.CitySearch().getLocalCity((s2, r2) => {
-                if (applied) return; // GPS已到位，跳过
-                if (s2 === 'complete' && r2.bounds) {
-                    map.setBounds(r2.bounds);
-                    if (!applied) {
-                        setLocStatus('ip');
-                        setLocLabel(r2.city || 'IP 定位');
-                        setRefreshing(false);
-                    }
-                } else {
-                    ipFailed = true;
-                    checkAllFailed();
+            // 全局超时保底 — 10秒后如果还没结果就显示失败
+            const safetyTimer = setTimeout(() => {
+                if (!applied) {
+                    setLocStatus('failed');
+                    setLocLabel('定位超时');
+                    setRefreshing(false);
                 }
-            });
+            }, 10000);
 
-            // 2) GPS定位 — 立即请求系统权限，优先高精度
+            // 1) IP定位 — 保底，必须执行
+            try {
+                const citySearch = new AMap.CitySearch();
+                citySearch.getLocalCity((status, result) => {
+                    clearTimeout(safetyTimer);
+                    if (applied) { ipDone = true; return; }
+                    if (status === 'complete' && result.bounds) {
+                        map.setBounds(result.bounds);
+                        applyLngLat(
+                            result.bounds.getCenter().lng,
+                            result.bounds.getCenter().lat,
+                            'ip'
+                        );
+                    } else {
+                        ipDone = true;
+                        checkDone();
+                    }
+                });
+            } catch {
+                ipDone = true;
+                checkDone();
+            }
+
+            // 2) GPS定位 — 立即请求系统权限
             if (!navigator.geolocation) {
-                gpsFailed = true;
-                checkAllFailed();
+                gpsDone = true;
+                checkDone();
                 return;
             }
 
+            // 先尝试低精度（快速返回，兼容性好）
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
+                    gpsDone = true;
                     const { longitude: lng, latitude: lat, accuracy } = pos.coords;
                     applyGpsCoords(lng, lat, accuracy);
+                    // 低精度成功后再尝试高精度升级
+                    if (accuracy > 100) {
+                        navigator.geolocation.getCurrentPosition(
+                            (pos2) => {
+                                if (pos2.coords.accuracy < accuracy) {
+                                    applyGpsCoords(pos2.coords.longitude, pos2.coords.latitude, pos2.coords.accuracy);
+                                }
+                            },
+                            () => {},
+                            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                        );
+                    }
                 },
-                (err) => {
-                    // GPS失败 — 不报错，等IP定位保底
-                    gpsFailed = true;
-                    checkAllFailed();
+                () => {
+                    // 低精度失败，尝试高精度
+                    navigator.geolocation.getCurrentPosition(
+                        (pos2) => {
+                            gpsDone = true;
+                            applyGpsCoords(pos2.coords.longitude, pos2.coords.latitude, pos2.coords.accuracy);
+                        },
+                        () => {
+                            gpsDone = true;
+                            checkDone();
+                        },
+                        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+                    );
                 },
-                { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+                { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
             );
         }
 
