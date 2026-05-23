@@ -1749,6 +1749,19 @@
             return segments.length ? segments : [{ type: 'text', value: text }];
         }
 
+
+        // 统一高德地图导航跳转：H5唤起App并传递坐标
+        function openAmapNav(name, location, city) {
+            if (location && location.includes(',')) {
+                const [lng, lat] = location.split(',');
+                window.open(`https://uri.amap.com/navigation?to=${lng},${lat},0&mode=car&callnative=1&coordinate=gaode&name=${encodeURIComponent(name)}`, '_blank');
+            } else if (city) {
+                window.open(`https://uri.amap.com/search?query=${encodeURIComponent(name)}&city=${encodeURIComponent(city)}&callnative=1`, '_blank');
+            } else {
+                window.open(`https://uri.amap.com/search?query=${encodeURIComponent(name)}&callnative=1`, '_blank');
+            }
+        }
+
         function LocationCard({ loc }) {
             const [saving, setSaving] = useState(false);
             const mapRef = useRef(null);
@@ -1804,14 +1817,7 @@
             };
 
             const handleNav = () => {
-                const name = loc.name;
-                const city = loc.city || '';
-                if (hasCoord) {
-                    const [lng, lat] = loc.location.split(',');
-                    window.location.href = `https://uri.amap.com/marker?position=${lng},${lat}&name=${encodeURIComponent(name)}&src=umap&coordinate=gaode&callnative=1`;
-                } else {
-                    window.location.href = `https://uri.amap.com/search?query=${encodeURIComponent(name)}&city=${encodeURIComponent(city)}&callnative=1`;
-                }
+                openAmapNav(loc.name, loc.location, loc.city);
             };
 
             return (
@@ -1873,7 +1879,7 @@
                                     {p.location && (
                                         <button className="ai-tool-result-place-nav" onClick={() => {
                                             const [lng, lat] = p.location.split(',');
-                                            window.location.href = `https://uri.amap.com/marker?position=${lng},${lat}&name=${encodeURIComponent(p.name)}&src=umap&coordinate=gaode&callnative=1`;
+                                            openAmapNav(p.name, p.location, '');
                                         }}><CompassOutlined /></button>
                                     )}
                                 </div>
@@ -2603,13 +2609,7 @@
         }
 
         function navigate(a) {
-            const cityName = a.city || '';
-            if (a.location) {
-                const [lng, lat] = a.location.split(',');
-                window.location.href = `https://uri.amap.com/marker?position=${lng},${lat}&name=${encodeURIComponent(a.name)}&src=umap&coordinate=gaode&callnative=1`;
-            } else {
-                window.location.href = `https://uri.amap.com/search?query=${encodeURIComponent(a.name)}&city=${encodeURIComponent(cityName)}&callnative=1`;
-            }
+            openAmapNav(a.name, a.location, a.city || '');
         }
 
         return (
@@ -3274,14 +3274,8 @@
 
         function navigate(e, a) {
             e.stopPropagation();
-            const name = a.name;
             const cityName = currentCityRef.current || city;
-            if (a.location) {
-                const [lng, lat] = a.location.split(',');
-                window.location.href = `https://uri.amap.com/marker?position=${lng},${lat}&name=${encodeURIComponent(name)}&src=umap&coordinate=gaode&callnative=1`;
-            } else {
-                window.location.href = `https://uri.amap.com/search?query=${encodeURIComponent(name)}&city=${encodeURIComponent(cityName)}&callnative=1`;
-            }
+            openAmapNav(a.name, a.location, cityName);
         }
 
         const showProgress = loading || (searched && (stepStates[1] !== 'pending' || stepStates[2] !== 'pending' || stepStates[3] !== 'pending'));
