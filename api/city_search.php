@@ -3,8 +3,7 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/helpers.php';
 
 loadEnv(__DIR__ . '/../.env');
-define('MIMO_API_KEY', $_ENV['MIMO_API_KEY'] ?? '');
-define('MIMO_BASE_URL', rtrim($_ENV['MIMO_BASE_URL'] ?? 'https://api.xiaomimimo.com/v1', '/'));
+define('DEEPSEEK_KEY', $_ENV['DEEPSEEK_API_KEY'] ?? '');
 
 header('Content-Type: application/json; charset=utf-8');
 corsHeaders();
@@ -56,22 +55,20 @@ function callAI($city, $userPrefs) {
 [{"name":"景点名","description":"50字内简介，突出与用户偏好的匹配点","address":"详细地址","tags":["标签1","标签2"],"confidence":0.95}]
 PROMPT;
 
-    $ch = curl_init(MIMO_BASE_URL . '/chat/completions');
+    $ch = curl_init('https://api.deepseek.com/chat/completions');
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode([
-            'model' => 'mimo-v2-pro',
+            'model' => 'deepseek-v4-flash',
             'messages' => [
                 ['role' => 'system', 'content' => '你是专业旅游顾问。严格按用户偏好筛选景点，只返回JSON数组，不输出任何解释。'],
                 ['role' => 'user', 'content' => $prompt],
             ],
-            'temperature' => 1.0,
-            'top_p' => 0.95,
             'stream' => false,
         ], JSON_UNESCAPED_UNICODE),
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json',
-            'api-key: ' . MIMO_API_KEY,
+            'Authorization: Bearer ' . DEEPSEEK_KEY,
         ],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 60,
