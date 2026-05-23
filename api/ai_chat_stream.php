@@ -115,31 +115,33 @@ try {
     $latestContent = '';
     $finalSaved = false;
 
-    $onProgress = function (string $think, string $content) use ($saveDb, $saveMsgId, &$latestThink, &$latestContent) {
+    // Fast incremental save: write to temp file (microseconds) instead of DB (10-50ms)
+    $tmpFile = sys_get_temp_dir() . '/umap_stream_' . $assistantMsgId . '.tmp';
+    $onProgress = function (string $think, string $content) use ($tmpFile, &$latestThink, &$latestContent) {
         $latestThink = $think;
         $latestContent = $content;
-        try {
-            $stmt = $saveDb->prepare("UPDATE ai_chat_messages SET content = ?, think = ? WHERE id = ?");
-            $stmt->execute([$content, $think ?: null, $saveMsgId]);
-        } catch (Throwable $e) {
-            error_log('Incremental save error: ' . $e->getMessage());
-        }
+        file_put_contents($tmpFile, json_encode([$think, $content], JSON_UNESCAPED_UNICODE), LOCK_EX);
     };
 
-    // Shutdown function: guarantee save even on unexpected termination
-    register_shutdown_function(function () use ($saveDb, $saveMsgId, &$latestThink, &$latestContent, &$finalSaved) {
+    // Shutdown function: guarantee final save even on unexpected termination
+    register_shutdown_function(function () use ($saveDb, $saveMsgId, $tmpFile, &$latestThink, &$latestContent, &$finalSaved) {
         if ($finalSaved) return;
+        // Try to recover from temp file first
+        if (file_exists($tmpFile)) {
+            $recovered = json_decode(file_get_contents($tmpFile), true);
+            if ($recovered) { $latestThink = $recovered[0]; $latestContent = $recovered[1]; }
+        }
         try {
             if ($latestContent !== '') {
                 $stmt = $saveDb->prepare("UPDATE ai_chat_messages SET content = ?, think = ? WHERE id = ?");
                 $stmt->execute([$latestContent, $latestThink ?: null, $saveMsgId]);
             } else {
-                // No content at all, remove the empty message
                 $saveDb->prepare("DELETE FROM ai_chat_messages WHERE id = ?")->execute([$saveMsgId]);
             }
         } catch (Throwable $e) {
             error_log('Shutdown save error: ' . $e->getMessage());
         }
+        @unlink($tmpFile);
     });
 
     $fullThink = '';
@@ -164,6 +166,7 @@ try {
     $stmt = $db->prepare("UPDATE ai_chat_messages SET content = ?, think = ? WHERE id = ?");
     $stmt->execute([$fullContent, $fullThink ?: null, $assistantMsgId]);
     $finalSaved = true;
+    @unlink($tmpFile);
 
     // Save tool results to the previous assistant message if this is a continuation
     if ($isContinue && $prevToolResults !== '') {
