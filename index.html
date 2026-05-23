@@ -167,7 +167,27 @@
         .home-sheet-handle::before { content: ''; display: block; width: 36px; height: 4px; border-radius: 2px; background: rgba(15,20,55,0.12); margin: 0 auto 14px; }
         .home-sheet-content { flex: 1; overflow-y: auto; padding: 0 16px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 
-
+        /* Home Footprint Overview */
+        .home-footprint { background: var(--surface); border-radius: 20px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 12px rgba(15,20,55,0.06); cursor: pointer; transition: all 180ms cubic-bezier(0.4,0,0.2,1); border: 1.5px solid transparent; }
+        .home-footprint:hover { border-color: rgba(21,101,239,0.2); box-shadow: 0 6px 24px rgba(21,101,239,0.1); transform: translateY(-2px); }
+        .home-footprint:active { transform: scale(0.98); }
+        .home-footprint-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .home-footprint-title { display: flex; align-items: center; gap: 8px; }
+        .home-footprint-title-icon { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #EEF4FF 0%, #E0ECFF 100%); display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 18px; }
+        .home-footprint-title h4 { font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--text-primary); margin: 0; }
+        .home-footprint-title p { font-size: 11px; color: var(--text-muted); margin: 2px 0 0; }
+        .home-footprint-link { font-size: 12px; color: var(--primary); font-weight: 600; display: flex; align-items: center; gap: 2px; }
+        .home-footprint-stats { display: flex; gap: 0; margin-bottom: 16px; background: #F7F9FC; border-radius: 14px; padding: 14px 0; }
+        .home-footprint-stat { flex: 1; text-align: center; position: relative; }
+        .home-footprint-stat + .home-footprint-stat::before { content: ''; position: absolute; left: 0; top: 4px; bottom: 4px; width: 1px; background: rgba(15,20,55,0.08); }
+        .home-footprint-stat-num { font-family: var(--font-heading); font-size: 22px; font-weight: 800; color: var(--primary); line-height: 1; }
+        .home-footprint-stat-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+        .home-footprint-recent { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .home-footprint-recent::-webkit-scrollbar { display: none; }
+        .home-footprint-tag { flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; background: #F0F4FF; border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--primary); white-space: nowrap; }
+        .home-footprint-tag .anticon { font-size: 12px; }
+        .home-footprint-empty { text-align: center; padding: 8px 0; }
+        .home-footprint-empty p { font-size: 12px; color: var(--text-muted); margin: 0; }
 
         /* AI Chat */
         .ai-chat { display: flex; flex-direction: column; height: calc(100dvh - 60px - env(safe-area-inset-bottom)); max-width: 480px; margin: 0 auto; background: #F0F4F8; overflow: hidden; }
@@ -1015,6 +1035,7 @@
         const [locLabel, setLocLabel] = useState('定位中...');
         const [refreshing, setRefreshing] = useState(false);
         const [sheetExpanded, setSheetExpanded] = useState(false);
+        const [footprintData, setFootprintData] = useState(null);
 
         const sheetExpandedRef = useRef(false);
 
@@ -1137,6 +1158,14 @@
             map.add(marker);
             markerRef.current = marker;
         }
+
+        // 加载足迹数据
+        useEffect(() => {
+            fetch('/api/footprint.php')
+                .then(r => r.json())
+                .then(data => { if (data.success) setFootprintData(data); })
+                .catch(() => {});
+        }, []);
 
         // 第一步：仅加载SDK，不创建地图
         useEffect(() => {
@@ -1404,6 +1433,56 @@
                             <p>探索世界，发现属于你的地图故事</p>
                         </div>
                     </div>
+                    {footprintData && footprintData.provinces && footprintData.provinces.length > 0 && (
+                        <div className="home-footprint" onClick={() => onNavigate('footprints')}>
+                            <div className="home-footprint-header">
+                                <div className="home-footprint-title">
+                                    <div className="home-footprint-title-icon"><EnvironmentOutlined /></div>
+                                    <div>
+                                        <h4>我的足迹</h4>
+                                        <p>已解锁 {footprintData.provinces.length} 个省份</p>
+                                    </div>
+                                </div>
+                                <span className="home-footprint-link">查看全部 <RightOutlined /></span>
+                            </div>
+                            <div className="home-footprint-stats">
+                                <div className="home-footprint-stat">
+                                    <div className="home-footprint-stat-num">{footprintData.province_count || footprintData.provinces.length}</div>
+                                    <div className="home-footprint-stat-label">已探访省份</div>
+                                </div>
+                                <div className="home-footprint-stat">
+                                    <div className="home-footprint-stat-num">{footprintData.total_visits || 0}</div>
+                                    <div className="home-footprint-stat-label">到访次数</div>
+                                </div>
+                            </div>
+                            {footprintData.records && footprintData.records.length > 0 && (
+                                <div className="home-footprint-recent">
+                                    {footprintData.records.slice(0, 6).map((r, i) => (
+                                        <span key={i} className="home-footprint-tag">
+                                            <EnvironmentOutlined /> {r.city || r.province}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    {footprintData && (!footprintData.provinces || footprintData.provinces.length === 0) && (
+                        <div className="home-footprint" onClick={() => onNavigate('footprints')}>
+                            <div className="home-footprint-header">
+                                <div className="home-footprint-title">
+                                    <div className="home-footprint-title-icon"><EnvironmentOutlined /></div>
+                                    <div>
+                                        <h4>我的足迹</h4>
+                                        <p>开始探索，记录你的旅程</p>
+                                    </div>
+                                </div>
+                                <span className="home-footprint-link">去探索 <RightOutlined /></span>
+                            </div>
+                            <div className="home-footprint-empty">
+                                <p>还没有足迹记录，去探索世界吧！</p>
+                            </div>
+                        </div>
+                    )}
                     <div className="home-section-title">快捷功能</div>
                     <div className="home-cards">
                         <div className="home-card" onClick={onGoPrefs}>
