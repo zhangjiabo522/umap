@@ -1232,27 +1232,18 @@
                         tryIPGeolocation();
                     }
 
-                    // Tier 2: APIPPro IP geolocation (https://ipv4.ink)
+                    // Tier 2: Server-side IP geolocation
                     function tryIPGeolocation() {
                         geoLog({ event: 'ipapi_attempt', step: 'ipapi' });
-                        fetch('https://api.ipify.org?format=json')
-                            .then(r => r.json())
-                            .then(ipData => {
-                                const ip = ipData.ip;
-                                geoLog({ event: 'ipapi_got_ip', step: 'ipapi', detail: 'ip=' + ip });
-                                return fetch('https://ipv4.ink/ipv4?ip=' + encodeURIComponent(ip));
-                            })
+                        fetch('/api/ip_location.php')
                             .then(r => r.json())
                             .then(data => {
-                                const d = data.data || data;
-                                if (d.latitude != null && d.longitude != null) {
-                                    const lng = parseFloat(d.longitude);
-                                    const lat = parseFloat(d.latitude);
-                                    geoLog({ event: 'ipapi_ok', step: 'ipapi', lng, lat, detail: 'city=' + (d.city_name||d.city||'') + ' isp=' + (d.isp||'') });
+                                if (data.success && data.lng != null && data.lat != null) {
+                                    geoLog({ event: 'ipapi_ok', step: 'ipapi', lng: data.lng, lat: data.lat, detail: 'city=' + (data.city||'') + ' ip=' + (data.ip||'') });
                                     clearTimeout(hardTimer);
-                                    finish({ lng, lat, type: 'ip' });
+                                    finish({ lng: data.lng, lat: data.lat, type: 'ip' });
                                 } else {
-                                    geoLog({ event: 'ipapi_fail', step: 'ipapi', error: 'no coords in response' });
+                                    geoLog({ event: 'ipapi_fail', step: 'ipapi', error: data.message || 'no coords' });
                                     tryAMapCitySearch();
                                 }
                             })
@@ -1338,23 +1329,16 @@
                 refreshIPFallback();
             }
 
-            // Tier 2: APIPPro IP geolocation
+            // Tier 2: Server-side IP geolocation
             function refreshIPFallback() {
                 geoLog({ event: 'refresh_ipapi', step: 'refresh' });
-                fetch('https://api.ipify.org?format=json')
-                    .then(r => r.json())
-                    .then(ipData => {
-                        return fetch('https://ipv4.ink/ipv4?ip=' + encodeURIComponent(ipData.ip));
-                    })
+                fetch('/api/ip_location.php')
                     .then(r => r.json())
                     .then(data => {
-                        const d = data.data || data;
-                        if (d.latitude != null && d.longitude != null) {
-                            const lng = parseFloat(d.longitude);
-                            const lat = parseFloat(d.latitude);
-                            geoLog({ event: 'refresh_ipapi_ok', step: 'refresh', lng, lat });
+                        if (data.success && data.lng != null && data.lat != null) {
+                            geoLog({ event: 'refresh_ipapi_ok', step: 'refresh', lng: data.lng, lat: data.lat });
                             clearTimeout(hardTimer);
-                            finish('ip', 'IP 定位', lng, lat);
+                            finish('ip', 'IP 定位', data.lng, data.lat);
                         } else {
                             refreshCitySearch();
                         }
