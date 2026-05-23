@@ -25,7 +25,9 @@ try {
 
         $stmt = $db->prepare("SELECT DISTINCT province FROM user_footprints WHERE user_id = ? AND province != ''");
         $stmt->execute([$userId]);
-        $provinces = array_column($stmt->fetchAll(), 'province');
+        $rawProvinces = array_column($stmt->fetchAll(), 'province');
+        // Normalize and deduplicate (handles legacy inconsistent data like "天津" vs "天津市")
+        $provinces = array_values(array_unique(array_map('normalizeProvince', $rawProvinces)));
 
         $stmt = $db->prepare("SELECT id, city, province, country, ip, created_at FROM user_footprints WHERE user_id = ? ORDER BY created_at DESC LIMIT 200");
         $stmt->execute([$userId]);
@@ -46,8 +48,8 @@ try {
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $data = json_decode(file_get_contents('php://input'), true) ?: [];
-        $province = trim($data['province'] ?? '');
-        $city = trim($data['city'] ?? '');
+        $province = normalizeProvince(trim($data['province'] ?? ''));
+        $city = normalizeCity(trim($data['city'] ?? ''));
         $country = trim($data['country'] ?? '');
         $ip = trim($data['ip'] ?? '');
         $lng = isset($data['lng']) ? floatval($data['lng']) : null;
@@ -56,9 +58,10 @@ try {
 
         $isNewProvince = false;
         if ($province !== '') {
-            $stmt = $db->prepare("SELECT COUNT(*) FROM user_footprints WHERE user_id = ? AND province = ?");
-            $stmt->execute([$userId, $province]);
-            $isNewProvince = ((int)$stmt->fetchColumn() === 0);
+            $stmt = $db->prepare("SELECT DISTINCT province FROM user_footprints WHERE user_id = ? AND province != ''");
+            $stmt->execute([$userId]);
+            $existing = array_map('normalizeProvince', array_column($stmt->fetchAll(), 'province'));
+            $isNewProvince = !in_array($province, $existing);
         }
 
         $stmt = $db->prepare("INSERT INTO user_footprints (user_id, ip, city, province, country, lng, lat) VALUES (?, ?, ?, ?, ?, ?, ?)");
@@ -75,6 +78,17 @@ try {
     jsonResponse(['success' => false, 'message' => '不支持的请求方法'], 405);
 } catch (PDOException $e) {
     jsonResponse(['success' => false, 'message' => '服务器错误'], 500);
+}
+
+function normalizeProvince(string $name): string {
+    if ($name === '') return '';
+    // Remove ethnic group suffixes, autonomous regions, SAR suffixes, province/city suffixes
+    return preg_replace('/壮族|回族|维吾尔/', '', preg_replace('/自治区|特别行政区|省|市$/', '', $name));
+}
+
+function normalizeCity(string $name): string {
+    if ($name === '') return '';
+    return preg_replace('/市$/', '', $name);
 }
 
 function ensureFootprintsTable(PDO $db): void {
