@@ -1754,11 +1754,11 @@
         function openAmapNav(name, location, city) {
             if (location && location.includes(',')) {
                 const [lng, lat] = location.split(',');
-                window.open(`https://uri.amap.com/navigation?to=${lng},${lat},0&mode=car&callnative=1&coordinate=gaode&name=${encodeURIComponent(name)}`, '_blank');
+                window.location.href = `https://uri.amap.com/navigation?to=${lng},${lat},0&mode=car&callnative=1&coordinate=gaode&name=${encodeURIComponent(name)}`;
             } else if (city) {
-                window.open(`https://uri.amap.com/search?query=${encodeURIComponent(name)}&city=${encodeURIComponent(city)}&callnative=1`, '_blank');
+                window.location.href = `https://uri.amap.com/search?query=${encodeURIComponent(name)}&city=${encodeURIComponent(city)}&callnative=1`;
             } else {
-                window.open(`https://uri.amap.com/search?query=${encodeURIComponent(name)}&callnative=1`, '_blank');
+                window.location.href = `https://uri.amap.com/search?query=${encodeURIComponent(name)}&callnative=1`;
             }
         }
 
