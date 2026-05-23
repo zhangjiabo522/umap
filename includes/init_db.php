@@ -16,12 +16,20 @@ try {
             `email` VARCHAR(255) NOT NULL,
             `password_hash` VARCHAR(255) NOT NULL,
             `email_verified` TINYINT(1) NOT NULL DEFAULT 0,
+            `userlike` TEXT DEFAULT NULL,
             `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY `uk_username` (`username`),
             UNIQUE KEY `uk_email` (`email`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ");
+
+    // Add userlike column if not exists (for existing databases)
+    try {
+        $pdo->exec("ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `userlike` TEXT DEFAULT NULL");
+    } catch (PDOException $e) {
+        // Column already exists, ignore
+    }
 
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS `email_verifications` (

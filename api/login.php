@@ -64,6 +64,14 @@ try {
     $prefStmt->execute([$user['id']]);
     $hasPreferences = $prefStmt->fetchColumn() > 0;
 
+    // Try to get userlike
+    $userlike = '';
+    try {
+        $likeStmt = $db->prepare("SELECT userlike FROM users WHERE id = ?");
+        $likeStmt->execute([$user['id']]);
+        $userlike = $likeStmt->fetchColumn() ?: '';
+    } catch (Throwable $e) {}
+
     jsonResponse([
         'success' => true,
         'message' => '登录成功',
@@ -72,6 +80,7 @@ try {
             'username' => $user['username'],
             'email' => $user['email'],
             'has_preferences' => $hasPreferences,
+            'userlike' => $userlike,
         ]
     ]);
 } catch (PDOException $e) {

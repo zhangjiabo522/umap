@@ -119,6 +119,9 @@ try {
     $stmt = $db->prepare("INSERT INTO ai_chat_messages (session_id, role, content, think, search_results) VALUES (?, 'assistant', ?, ?, ?)");
     $stmt->execute([$sessionId, $fullContent, $fullThink ?: null, $searchResultsJson]);
 
+    // Extract and update userlike
+    updateUserLikeFromResponse($db, $userId, $fullContent);
+
     // Auto-generate title after first exchange
     $msgCount = $db->prepare("SELECT COUNT(*) FROM ai_chat_messages WHERE session_id = ?");
     $msgCount->execute([$sessionId]);
@@ -232,7 +235,17 @@ function buildMediaItems(array $files): array {
 }
 
 function loadUserProfile(PDO $db, int $userId): array {
-    $profile = ['prefs' => [], 'favorites' => [], 'likes' => [], 'dislikes' => []];
+    $profile = ['prefs' => [], 'favorites' => [], 'likes' => [], 'dislikes' => [], 'userlike' => ''];
+
+    // Load userlike
+    try {
+        $stmt = $db->prepare('SELECT userlike FROM users WHERE id = ?');
+        $stmt->execute([$userId]);
+        $row = $stmt->fetch();
+        $profile['userlike'] = $row['userlike'] ?? '';
+    } catch (Throwable $e) {
+        // Column may not exist yet
+    }
 
     try {
         $stmt = $db->prepare('SELECT tt.name FROM user_preferences up JOIN travel_tags tt ON tt.id = up.tag_id WHERE up.user_id = ? LIMIT 50');
@@ -331,6 +344,7 @@ function buildSystemPrompt(array $profile, float $userLng = 0, float $userLat = 
     $favorites = profileItemsText($profile['favorites']);
     $likes = profileItemsText($profile['likes']);
     $dislikes = profileItemsText($profile['dislikes']);
+    $userlike = empty($profile['userlike']) ? '暂无记录' : $profile['userlike'];
     $locationInfo = '';
     if ($userLng != 0 && $userLat != 0) {
         $locationInfo = "- 用户当前位置坐标：经度 {$userLng}，纬度 {$userLat}（高德GCJ-02坐标系）";
@@ -343,6 +357,7 @@ function buildSystemPrompt(array $profile, float $userLng = 0, float $userLat = 
 - 已收藏地点：{$favorites}
 - 点赞过的地点：{$likes}
 - 踩过/不喜欢的地点：{$dislikes}
+- 用户深度喜好档案：{$userlike}
 {$locationInfo}
 
 回答规则：
@@ -356,6 +371,10 @@ function buildSystemPrompt(array $profile, float $userLng = 0, float $userLat = 
 {"name":"景点名","city":"城市","address":"地址","desc":"一句话推荐理由","location":"经度,纬度"}
 ```
 location字段为高德GCJ-02坐标(经度,纬度)，如不确定坐标可省略location字段。不要在正文中重复地点卡片的信息。
+7. 在对话过程中，如果发现用户有新的旅行喜好、习惯、偏好（如喜欢自然风光、讨厌人多的地方、喜欢美食、偏好历史文化等），请在回答末尾用以下代码块格式输出（不要每次都输出，只在发现新偏好时输出）：
+```userlike_update
+新增喜好：xxx
+```
 PROMPT;
 }
 
@@ -379,6 +398,50 @@ function buildUserText(string $message, array $favorite, array $mediaItems, stri
         $text .= "\n\n以下是从互联网搜索到的实时信息，请结合这些信息回答用户问题：\n{$searchResults}";
     }
     return $text;
+}
+
+function updateUserLikeFromResponse(PDO $db, int $userId, string $content): void {
+    // Extract userlike_update blocks from AI response
+    if (preg_match_all('/```userlike_update\s*\n(.*?)\n```/s', $content, $matches)) {
+        $updates = [];
+        foreach ($matches[1] as $block) {
+            $line = trim($block);
+            if (preg_match('/新增喜好[：:]\s*(.+)/', $line, $m)) {
+                $updates[] = trim($m[1]);
+            }
+        }
+
+        if (!empty($updates)) {
+            try {
+                // Ensure userlike column exists
+                $db->exec("ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `userlike` TEXT DEFAULT NULL");
+
+                // Get current userlike
+                $stmt = $db->prepare('SELECT userlike FROM users WHERE id = ?');
+                $stmt->execute([$userId]);
+                $current = $stmt->fetchColumn() ?: '';
+
+                // Append new likes (avoid duplicates, keep last 500 chars)
+                $existing = array_filter(array_map('trim', explode('；', $current)));
+                foreach ($updates as $new) {
+                    if (!in_array($new, $existing)) {
+                        $existing[] = $new;
+                    }
+                }
+
+                // Keep reasonable length
+                $updated = implode('；', array_slice($existing, -30));
+                if (mb_strlen($updated) > 500) {
+                    $updated = mb_substr($updated, -500);
+                }
+
+                $stmt = $db->prepare('UPDATE users SET userlike = ? WHERE id = ?');
+                $stmt->execute([$updated, $userId]);
+            } catch (Throwable $e) {
+                error_log('Update userlike error: ' . $e->getMessage());
+            }
+        }
+    }
 }
 
 function callMimo(array $payload, bool $stream, string &$outThink = null, string &$outContent = null): array {

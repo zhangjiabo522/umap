@@ -28,6 +28,15 @@ try {
         jsonResponse(['success' => false, 'message' => '用户不存在'], 401);
     }
 
+    // Try to get userlike
+    try {
+        $likeStmt = $db->prepare("SELECT userlike FROM users WHERE id = ?");
+        $likeStmt->execute([$_SESSION['user_id']]);
+        $user['userlike'] = $likeStmt->fetchColumn() ?: '';
+    } catch (Throwable $e) {
+        $user['userlike'] = '';
+    }
+
     $prefStmt = $db->prepare("SELECT COUNT(*) FROM user_preferences WHERE user_id = ?");
     $prefStmt->execute([$_SESSION['user_id']]);
     $user['has_preferences'] = $prefStmt->fetchColumn() > 0;
