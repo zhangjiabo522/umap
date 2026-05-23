@@ -60,11 +60,13 @@ PROMPT;
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode([
-            'model' => 'mimo-v2.5',
+            'model' => 'mimo-v2-pro',
             'messages' => [
                 ['role' => 'system', 'content' => '你是专业旅游顾问。严格按用户偏好筛选景点，只返回JSON数组，不输出任何解释。'],
                 ['role' => 'user', 'content' => $prompt],
             ],
+            'temperature' => 1.0,
+            'top_p' => 0.95,
             'stream' => false,
         ], JSON_UNESCAPED_UNICODE),
         CURLOPT_HTTPHEADER => [

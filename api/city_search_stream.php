@@ -289,11 +289,13 @@ function parallelAmapLookup(string $city, array $candidates, int $total): array 
 
 function callMimo(string $prompt, string $system): array {
     $payload = json_encode([
-        'model' => 'mimo-v2.5',
+        'model' => 'mimo-v2-pro',
         'messages' => [
             ['role' => 'system', 'content' => $system],
             ['role' => 'user', 'content' => $prompt],
         ],
+        'temperature' => 1.0,
+        'top_p' => 0.95,
         'stream' => false,
     ], JSON_UNESCAPED_UNICODE);
 
