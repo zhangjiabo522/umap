@@ -1085,79 +1085,40 @@
             setRefreshing(true);
             if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
 
-            function applyLngLat(lng, lat, type) {
-                map.setCenter([lng, lat]);
-                map.setZoom(17);
-                if (onLocationUpdate) onLocationUpdate({ lng, lat });
-                const marker = new AMap.Marker({
-                    position: [lng, lat],
-                    content: '<div style="width:18px;height:18px;border-radius:50%;background:#1565EF;border:3px solid #fff;box-shadow:0 0 0 5px rgba(21,101,239,0.22),0 2px 8px rgba(0,0,0,0.2)"></div>',
-                    offset: new AMap.Pixel(-9, -9),
-                    zIndex: 200,
-                });
-                map.add(marker);
-                markerRef.current = marker;
-                setLocStatus(type);
-                setLocLabel(type === 'gps' ? 'GPS' : '网络定位');
-                setRefreshing(false);
-            }
-
-            function fallbackCity() {
-                new AMap.CitySearch().getLocalCity((s2, r2) => {
-                    if (s2 === 'complete' && r2.bounds) {
-                        map.setBounds(r2.bounds);
-                        setLocStatus('ip');
-                        setLocLabel(r2.city || 'IP 定位');
-                    } else {
-                        setLocStatus('failed');
-                        setLocLabel('定位失败');
-                    }
-                    setRefreshing(false);
-                });
-            }
-
-            // Use browser native Geolocation API to trigger permission prompt
-            if (!navigator.geolocation) {
-                fallbackCity();
-                return;
-            }
-
-            let applied = false;
-
-            // Quick attempt: low accuracy, accept cached (triggers permission dialog)
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    if (applied) return;
-                    applied = true;
-                    const { longitude: lng, latitude: lat, accuracy } = pos.coords;
-                    AMap.convertFrom([lng, lat], 'gps', (status, result) => {
-                        if (status === 'complete' && result.locations?.[0]) {
-                            const [gLng, gLat] = result.locations[0];
-                            applyLngLat(gLng, gLat, accuracy <= 100 ? 'gps' : 'ip');
-                        } else {
-                            applyLngLat(lng, lat, 'ip');
-                        }
+            const geo = new AMap.Geolocation({ enableHighAccuracy: true, timeout: 8000, zoomToAccuracy: true });
+            geo.getCurrentPosition((status, result) => {
+                if (status === 'complete') {
+                    map.setCenter([result.position.lng, result.position.lat]);
+                    map.setZoom(14);
+                    if (onLocationUpdate) onLocationUpdate({ lng: result.position.lng, lat: result.position.lat });
+                    if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
+                    const marker = new AMap.Marker({
+                        position: [result.position.lng, result.position.lat],
+                        content: '<div style="width:18px;height:18px;border-radius:50%;background:#1565EF;border:3px solid #fff;box-shadow:0 0 0 5px rgba(21,101,239,0.22),0 2px 8px rgba(0,0,0,0.2)"></div>',
+                        offset: new AMap.Pixel(-9, -9),
+                        zIndex: 200,
                     });
-                    // Background precise GPS upgrade
-                    navigator.geolocation.getCurrentPosition(
-                        (pos2) => {
-                            if (pos2.coords.accuracy < (accuracy || Infinity)) {
-                                AMap.convertFrom([pos2.coords.longitude, pos2.coords.latitude], 'gps', (s2, r2) => {
-                                    if (s2 === 'complete' && r2.locations?.[0]) {
-                                        applyLngLat(r2.locations[0][0], r2.locations[0][1], 'gps');
-                                    }
-                                });
-                            }
-                        },
-                        () => {},
-                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                    );
-                },
-                (err) => {
-                    fallbackCity();
-                },
-                { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 }
-            );
+                    map.add(marker);
+                    markerRef.current = marker;
+                    setLocStatus('gps');
+                    setLocLabel('GPS 定位');
+                    setRefreshing(false);
+                } else {
+                    const city = new AMap.CitySearch();
+                    city.getLocalCity((s2, r2) => {
+                        if (s2 === 'complete' && r2.bounds) {
+                            map.setBounds(r2.bounds);
+                            if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
+                            setLocStatus('ip');
+                            setLocLabel(r2.city || 'IP 定位');
+                        } else {
+                            setLocStatus('failed');
+                            setLocLabel('定位失败');
+                        }
+                        setRefreshing(false);
+                    });
+                }
+            });
         }
 
         useEffect(() => {
