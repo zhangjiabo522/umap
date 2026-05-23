@@ -113,22 +113,43 @@ function handleMessages(PDO $db, int $userId): void {
         jsonResponse(['success' => false, 'message' => '会话不存在'], 404);
     }
 
-    $stmt = $db->prepare("SELECT id, role, content, think, favorite, attachments, search_results, created_at FROM ai_chat_messages WHERE session_id = ? ORDER BY created_at ASC");
+    $stmt = $db->prepare("SELECT id, role, content, think, favorite, attachments, search_results, tool_results, is_continuation, created_at FROM ai_chat_messages WHERE session_id = ? ORDER BY created_at ASC");
     $stmt->execute([$sessionId]);
+    $rawMessages = $stmt->fetchAll();
+
+    // Merge continuation messages into the previous assistant message
     $messages = [];
-    foreach ($stmt->fetchAll() as $row) {
-        $messages[] = [
-            'id' => $row['id'],
-            'role' => $row['role'],
-            'content' => $row['content'],
-            'think' => $row['think'],
-            'favorite' => $row['favorite'] ? json_decode($row['favorite'], true) : null,
-            'attachments' => $row['attachments'] ? json_decode($row['attachments'], true) : null,
-            'searchResults' => $row['search_results'] ? json_decode($row['search_results'], true) : null,
-            'created_at' => $row['created_at'],
-        ];
+    foreach ($rawMessages as $row) {
+        $isCont = intval($row['is_continuation'] ?? 0);
+        if ($row['role'] === 'assistant' && $isCont) {
+            // Append continuation content to the last assistant message
+            $lastIdx = count($messages) - 1;
+            while ($lastIdx >= 0 && $messages[$lastIdx]['role'] !== 'assistant') $lastIdx--;
+            if ($lastIdx >= 0) {
+                $messages[$lastIdx]['content'] .= "\n\n" . $row['content'];
+            } else {
+                // No previous assistant message (shouldn't happen), add as new
+                $messages[] = buildMsgRow($row);
+            }
+        } else {
+            $messages[] = buildMsgRow($row);
+        }
     }
     jsonResponse(['success' => true, 'messages' => $messages]);
+}
+
+function buildMsgRow(array $row): array {
+    return [
+        'id' => $row['id'],
+        'role' => $row['role'],
+        'content' => $row['content'],
+        'think' => $row['think'],
+        'favorite' => $row['favorite'] ? json_decode($row['favorite'], true) : null,
+        'attachments' => $row['attachments'] ? json_decode($row['attachments'], true) : null,
+        'searchResults' => $row['search_results'] ? json_decode($row['search_results'], true) : null,
+        'toolResults' => $row['tool_results'] ? json_decode($row['tool_results'], true) : null,
+        'created_at' => $row['created_at'],
+    ];
 }
 
 function handleCreate(PDO $db, int $userId): void {

@@ -1674,7 +1674,7 @@
                 const data = await res.json();
                 if (data.success) {
                     setMessages(data.messages
-                        .filter(m => !(m.role === 'assistant' && !m.content))
+                        .filter(m => !(m.role === 'assistant' && !m.content && !(m.toolResults || []).length))
                         .map(m => ({
                         role: m.role === 'assistant' ? 'ai' : 'user',
                         content: m.content,
@@ -1682,6 +1682,7 @@
                         favorite: m.favorite,
                         attachments: m.attachments,
                         searchResults: m.searchResults,
+                        toolResults: m.toolResults || [],
                     })));
                     setSessionId(sid);
                     const s = sessions.find(s => s.id === sid);

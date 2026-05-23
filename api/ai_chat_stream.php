@@ -108,8 +108,8 @@ try {
 
     // Pre-insert empty assistant message to get ID for incremental saves
     $searchResultsJson = !empty($searchResultsData) ? json_encode($searchResultsData, JSON_UNESCAPED_UNICODE) : null;
-    $stmt = $db->prepare("INSERT INTO ai_chat_messages (session_id, role, content, think, search_results) VALUES (?, 'assistant', '', NULL, ?)");
-    $stmt->execute([$sessionId, $searchResultsJson]);
+    $stmt = $db->prepare("INSERT INTO ai_chat_messages (session_id, role, content, think, search_results, is_continuation) VALUES (?, 'assistant', '', NULL, ?, ?)");
+    $stmt->execute([$sessionId, $searchResultsJson, $isContinue ? 1 : 0]);
     $assistantMsgId = intval($db->lastInsertId());
 
     // Incremental save callback
@@ -168,6 +168,17 @@ try {
     $stmt = $db->prepare("UPDATE ai_chat_messages SET content = ?, think = ? WHERE id = ?");
     $stmt->execute([$fullContent, $fullThink ?: null, $assistantMsgId]);
     $finalSaved = true;
+
+    // Save tool results to the previous assistant message if this is a continuation
+    if ($isContinue && $prevToolResults !== '') {
+        $prevStmt = $db->prepare("SELECT id FROM ai_chat_messages WHERE session_id = ? AND role = 'assistant' AND is_continuation = 0 ORDER BY id DESC LIMIT 1");
+        $prevStmt->execute([$sessionId]);
+        $prevMsgId = $prevStmt->fetchColumn();
+        if ($prevMsgId) {
+            $toolJson = json_decode($prevToolResults, true) ?: json_decode('[' . $prevToolResults . ']', true);
+            $db->prepare("UPDATE ai_chat_messages SET tool_results = ? WHERE id = ?")->execute([json_encode($toolJson, JSON_UNESCAPED_UNICODE), $prevMsgId]);
+        }
+    }
 
     // Extract and update userlike
     updateUserLikeFromResponse($db, $userId, $fullContent);
@@ -655,10 +666,16 @@ function ensureChatTables(PDO $db): void {
         `favorite` JSON DEFAULT NULL,
         `attachments` JSON DEFAULT NULL,
         `search_results` JSON DEFAULT NULL,
+        `tool_results` JSON DEFAULT NULL,
+        `is_continuation` TINYINT(1) NOT NULL DEFAULT 0,
         `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         KEY `idx_session_created` (`session_id`, `created_at`),
         CONSTRAINT `fk_acm_session` FOREIGN KEY (`session_id`) REFERENCES `ai_chat_sessions`(`id`) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    // Add columns if table already exists
+    try { $db->exec("ALTER TABLE `ai_chat_messages` ADD COLUMN `tool_results` JSON DEFAULT NULL"); } catch (Throwable $e) {}
+    try { $db->exec("ALTER TABLE `ai_chat_messages` ADD COLUMN `is_continuation` TINYINT(1) NOT NULL DEFAULT 0"); } catch (Throwable $e) {}
 }
 
 function loadHistoryMessages(PDO $db, int $sessionId, int $maxRounds): array {
