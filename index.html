@@ -2074,7 +2074,7 @@
             const isContinue = !!continueParams;
             const text = isContinue ? '' : inputText.trim();
             if (!isContinue && !text && attachedFiles.length === 0) return;
-            if (loading) return;
+            if (!isContinue && loading) return; // Allow continue calls to bypass loading guard
 
             // Build user message (skip for continue mode)
             if (!isContinue) {
