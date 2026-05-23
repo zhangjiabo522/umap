@@ -1826,7 +1826,7 @@
         }
 
         function ToolCallBanner({ tool, status }) {
-            const toolNames = { search_places: '搜索地点', get_nearby: '搜索周边', get_weather: '查询天气', web_search: '联网搜索' };
+            const toolNames = { search_places: '搜索地点', get_nearby: '搜索周边', get_weather: '查询天气', web_search: '联网搜索', fetch_page: '阅读网页' };
             const label = toolNames[tool] || tool;
             return (
                 <div className={`ai-toolcall-banner ${status}`}>
@@ -1866,6 +1866,23 @@
                                     )}
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                );
+            }
+            if (tool === 'fetch_page') {
+                return (
+                    <div className="ai-tool-result">
+                        <div className="ai-tool-result-header">
+                            📄 已阅读: {result.title || result.url}
+                            {result.author && <span style={{marginLeft:8,fontSize:11,opacity:0.7}}>作者: {result.author}</span>}
+                            {result.date && <span style={{marginLeft:8,fontSize:11,opacity:0.7}}>{result.date}</span>}
+                        </div>
+                        <div style={{padding:'12px 14px',fontSize:'13px',lineHeight:1.7,color:'var(--text-primary)',maxHeight:400,overflowY:'auto',whiteSpace:'pre-wrap'}}>
+                            {result.text}
+                        </div>
+                        <div style={{padding:'0 14px 10px',fontSize:11,color:'var(--text-muted)'}}>
+                            {result.length} 字符 · {result.hostname}
                         </div>
                     </div>
                 );

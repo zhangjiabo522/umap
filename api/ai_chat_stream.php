@@ -462,6 +462,11 @@ type可选值：餐饮、酒店、景点、购物、交通设施、生活服务
 {"tool":"web_search","params":{"query":"搜索关键词"}}
 ```
 
+15. 搜索返回结果后，如果需要深入了解某篇网页的内容，使用以下代码块调用网页阅读工具（url从搜索结果中获取）：
+```tool_call
+{"tool":"fetch_page","params":{"url":"https://..."}}
+```
+
 重要规则：
 - search_places/get_nearby/get_weather/web_search 会实际调用API返回实时数据，请在需要实时信息时优先使用
 - 每次回复最多调用2次工具，避免过多API请求

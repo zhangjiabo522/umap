@@ -29,6 +29,7 @@ try {
         'get_nearby' => getNearby($params),
         'get_weather' => getWeather($params),
         'web_search' => webSearch($params),
+        'fetch_page' => fetchPage($params),
         default => throw new RuntimeException("未知工具: {$tool}"),
     };
     jsonResponse(['success' => true, 'tool' => $tool, 'result' => $result]);
@@ -177,6 +178,42 @@ function getWeather(array $params): array {
             'dayPower' => $c['daypower'] ?? '',
             'nightPower' => $c['nightpower'] ?? '',
         ], $casts), 0, 4),
+    ];
+}
+
+function fetchPage(array $params): array {
+    $url = trim($params['url'] ?? '');
+    if (!$url) throw new RuntimeException('缺少网页URL');
+    if (!preg_match('#^https?://#', $url)) throw new RuntimeException('URL格式不正确');
+
+    $ch = curl_init('http://127.0.0.1:8889/extract');
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode(['url' => $url], JSON_UNESCAPED_UNICODE),
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 20,
+    ]);
+    $resp = curl_exec($ch);
+    $err = curl_error($ch);
+    curl_close($ch);
+
+    if ($err) throw new RuntimeException('网页提取服务请求失败: ' . $err);
+    $data = json_decode($resp, true);
+    if (!is_array($data)) throw new RuntimeException('网页提取返回异常');
+
+    if (!($data['success'] ?? false)) {
+        throw new RuntimeException($data['error'] ?? '网页提取失败');
+    }
+
+    return [
+        'url' => $data['url'] ?? $url,
+        'title' => $data['title'] ?? '',
+        'author' => $data['author'] ?? '',
+        'date' => $data['date'] ?? '',
+        'hostname' => $data['hostname'] ?? '',
+        'text' => $data['text'] ?? '',
+        'length' => $data['length'] ?? 0,
     ];
 }
 
