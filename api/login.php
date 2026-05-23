@@ -22,23 +22,12 @@ if (!$input) {
 
 $account = sanitizeInput($input['account'] ?? '');
 $password = $input['password'] ?? '';
-$recaptchaToken = $input['recaptcha_token'] ?? '';
-
 if (empty($account)) {
     jsonResponse(['success' => false, 'message' => '请输入用户名或邮箱']);
 }
 
 if (empty($password)) {
     jsonResponse(['success' => false, 'message' => '请输入密码']);
-}
-
-if (empty($recaptchaToken)) {
-    jsonResponse(['success' => false, 'message' => '请完成人机验证']);
-}
-
-$recaptchaResult = verifyRecaptcha($recaptchaToken);
-if (empty($recaptchaResult['success'])) {
-    jsonResponse(['success' => false, 'message' => '人机验证失败，请重试']);
 }
 
 try {

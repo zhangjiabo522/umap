@@ -24,7 +24,6 @@ $username = sanitizeInput($input['username'] ?? '');
 $email = filter_var(trim($input['email'] ?? ''), FILTER_VALIDATE_EMAIL);
 $password = $input['password'] ?? '';
 $inviteCode = trim($input['invite_code'] ?? '');
-$recaptchaToken = $input['recaptcha_token'] ?? '';
 
 if (empty($username) || strlen($username) < 3 || strlen($username) > 50) {
     jsonResponse(['success' => false, 'message' => '用户名长度需要3-50个字符']);
@@ -36,15 +35,6 @@ if (!$email) {
 
 if (empty($password) || strlen($password) < 8) {
     jsonResponse(['success' => false, 'message' => '密码长度至少8个字符']);
-}
-
-if (empty($recaptchaToken)) {
-    jsonResponse(['success' => false, 'message' => '请完成人机验证']);
-}
-
-$recaptchaResult = verifyRecaptcha($recaptchaToken);
-if (empty($recaptchaResult['success'])) {
-    jsonResponse(['success' => false, 'message' => '人机验证失败，请重试']);
 }
 
 if ($inviteCode !== 'Bohack2026') {

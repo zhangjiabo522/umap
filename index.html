@@ -760,27 +760,23 @@
     // ==================== Auth Hook ====================
     function useAuthForm() {
         const [loading, setLoading] = useState(false);
-        const [captchaToken, setCaptchaToken] = useState('');
-        const [captchaReset, setCaptchaReset] = useState(0);
-        const resetCaptcha = () => { setCaptchaToken(''); setCaptchaReset(k => k + 1); };
         async function submit(url, body) {
-            if (!captchaToken) { message.warning('请完成人机验证'); return null; }
             setLoading(true);
             try {
-                const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, recaptcha_token: captchaToken }) });
+                const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                 const data = await res.json();
                 if (data.success) { message.success(data.message); return data; }
-                message.error(data.message); resetCaptcha(); return null;
-            } catch(e) { message.error('网络错误，请稍后重试'); resetCaptcha(); return null; }
+                message.error(data.message); return null;
+            } catch(e) { message.error('网络错误，请稍后重试'); return null; }
             finally { setLoading(false); }
         }
-        return { loading, captchaToken, setCaptchaToken, captchaReset, resetCaptcha, submit };
+        return { loading, submit };
     }
 
     // ==================== Login Form ====================
     function LoginForm({ onLogin }) {
         const [form] = Form.useForm();
-        const { loading, captchaToken, setCaptchaToken, captchaReset, submit } = useAuthForm();
+        const { loading, submit } = useAuthForm();
         async function handleSubmit(v) { const d = await submit('/api/login.php', { account: v.account, password: v.password }); if (d?.user) onLogin(d.user); }
         return (
             <Form form={form} onFinish={handleSubmit} size="large" layout="vertical">
@@ -790,7 +786,6 @@
                 <Form.Item name="password" rules={[{ required: true, message: '请输入密码' }]}>
                     <Input.Password prefix={<LockOutlined style={{ color: TOKEN.accent }} />} placeholder="密码" autoComplete="current-password" />
                 </Form.Item>
-                <Form.Item><RecaptchaWidget onVerify={setCaptchaToken} resetKey={captchaReset} /></Form.Item>
                 <Form.Item><Button type="primary" htmlType="submit" block loading={loading}>登录</Button></Form.Item>
             </Form>
         );
@@ -799,7 +794,7 @@
     // ==================== Register Form ====================
     function RegisterForm({ onSuccess }) {
         const [form] = Form.useForm();
-        const { loading, captchaToken, setCaptchaToken, captchaReset, submit } = useAuthForm();
+        const { loading, submit } = useAuthForm();
         async function handleSubmit(v) {
             const d = await submit('/api/register.php', { username: v.username, email: v.email, password: v.password, invite_code: v.invite_code });
             if (d?.success) { form.resetFields(); onSuccess(); }
@@ -821,7 +816,6 @@
                 <Form.Item name="confirmPassword" dependencies={['password']} rules={[{ required: true, message: '请确认密码' }, ({ getFieldValue }) => ({ validator(_, value) { if (!value || getFieldValue('password') === value) return Promise.resolve(); return Promise.reject(new Error('两次密码不一致')); } })]}>
                     <Input.Password prefix={<LockOutlined style={{ color: TOKEN.accent }} />} placeholder="确认密码" autoComplete="new-password" />
                 </Form.Item>
-                <Form.Item><RecaptchaWidget onVerify={setCaptchaToken} resetKey={captchaReset} /></Form.Item>
                 <Form.Item><Button type="primary" htmlType="submit" block loading={loading}>注册</Button></Form.Item>
             </Form>
         );
