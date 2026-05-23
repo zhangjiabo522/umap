@@ -489,6 +489,40 @@
     const RECAPTCHA_SITE_KEY = '6LeBLvcsAAAAAANaL5q8z4tVmVu1QPbrzarCBeoi';
     const TOKEN = { primary: '#1565EF', accent: '#0D9488', bgStart: '#0F1E3D', bgMid: '#15305A', bgEnd: '#0A1628' };
 
+    // Geolocation diagnostic logger
+    function geoLog(data) {
+        try {
+            const payload = {
+                ...data,
+                is_mobile: /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent),
+                platform: navigator.platform || '',
+                geolocation_api: navigator.geolocation ? 'available' : 'unavailable',
+                https: location.protocol === 'https:',
+                page_url: location.href.substring(0, 200),
+                screen: (screen.width || 0) + 'x' + (screen.height || 0),
+            };
+            fetch('/api/geo_log.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            }).catch(() => {});
+        } catch (e) {}
+    }
+
+    // Browser native geolocation permission check
+    function checkBrowserGeoPermission() {
+        return new Promise((resolve) => {
+            if (!navigator.geolocation) { resolve('unavailable'); return; }
+            if (navigator.permissions) {
+                navigator.permissions.query({ name: 'geolocation' }).then((result) => {
+                    resolve(result.state); // 'granted', 'denied', 'prompt'
+                }).catch(() => resolve('query_failed'));
+            } else {
+                resolve('no_permissions_api');
+            }
+        });
+    }
+
     const TIER_CONFIG = {
         quick: { label: '初步筛选', tags: 25, min: 10, desc: '适合快速体验 (25个标签, 至少选10个)' },
         medium: { label: '中度测评', tags: 50, min: 20, desc: '中度的偏好测评 (50个标签, 至少选20个)' },
@@ -1094,10 +1128,23 @@
 
         // 第一步：仅加载SDK，不创建地图
         useEffect(() => {
-            if (!window.AMapLoader) { setLocStatus('failed'); setLocLabel('地图未加载'); return; }
+            if (!window.AMapLoader) { geoLog({ event: 'loader_missing', step: 'sdk', error: 'AMapLoader not found on window' }); setLocStatus('failed'); setLocLabel('地图未加载'); return; }
             let destroyed = false;
 
             async function init() {
+                const t0 = Date.now();
+                // Check browser geolocation permission status
+                const browserGeoPerm = await checkBrowserGeoPermission();
+                geoLog({ event: 'init_start', step: 'begin', detail: 'browser_geo_permission=' + browserGeoPerm });
+
+                // Also try browser native geolocation as diagnostic
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (pos) => { geoLog({ event: 'browser_geo_ok', step: 'diagnostic', lng: pos.coords.longitude, lat: pos.coords.latitude, detail: 'accuracy=' + pos.coords.accuracy }); },
+                        (err) => { geoLog({ event: 'browser_geo_err', step: 'diagnostic', error: err.message, errorCode: err.code, detail: 'code=' + err.code + ' msg=' + err.message }); },
+                        { timeout: 5000, maximumAge: 60000 }
+                    );
+                }
                 try {
                     setLocStatus('loading');
                     setLocLabel('定位中...');
@@ -1105,6 +1152,9 @@
                     const cfgResp = await fetch('/api/amap_jsapi_config.php');
                     const cfgData = await cfgResp.json();
                     const cfg = cfgData.config || {};
+                    const hasKey = !!cfg.key;
+                    const secType = cfg.serviceHost ? 'serviceHost' : (cfg.securityJsCode ? 'securityJsCode' : 'none');
+                    geoLog({ event: 'config_fetched', step: 'config', config_ok: hasKey, security_type: secType, detail: JSON.stringify({ hasKey, secType, keyLen: (cfg.key||'').length }) });
                     if (!cfg.key) throw new Error('missing amap key');
 
                     if (cfg.serviceHost) {
@@ -1113,16 +1163,20 @@
                         window._AMapSecurityConfig = { securityJsCode: cfg.securityJsCode };
                     }
 
+                    const t1 = Date.now();
                     const AMap = await window.AMapLoader.load({
                         key: cfg.key,
                         version: '2.0',
                         plugins: ['AMap.Geolocation', 'AMap.CitySearch'],
                     });
+                    geoLog({ event: 'sdk_loaded', step: 'sdk', duration_ms: Date.now() - t1, sdk_loaded: !!AMap });
                     if (destroyed) return;
                     AMap.getConfig().appname = 'amap-jsapi-skill';
                     AMapRef.current = AMap;
 
+                    const t2 = Date.now();
                     const coords = await getCoordinates(AMap);
+                    geoLog({ event: 'coords_result', step: 'geolocation', type: coords?.type || 'none', lng: coords?.lng, lat: coords?.lat, duration_ms: Date.now() - t2 });
                     if (destroyed) return;
 
                     const center = coords ? [coords.lng, coords.lat] : [116.397, 39.908];
@@ -1145,7 +1199,9 @@
                         setLocLabel('定位失败');
                     }
                     setRefreshing(false);
+                    geoLog({ event: 'init_done', step: 'complete', status: coords?.type || 'failed', duration_ms: Date.now() - t0 });
                 } catch (e) {
+                    geoLog({ event: 'init_error', step: 'exception', error: e.message || String(e), detail: e.stack?.substring(0, 300) || '', duration_ms: Date.now() - t0 });
                     if (!destroyed) { setLocStatus('failed'); setLocLabel('地图加载失败'); setRefreshing(false); }
                 }
             }
@@ -1153,10 +1209,19 @@
             function getCoordinates(AMap) {
                 return new Promise((resolve) => {
                     let done = false;
-                    const finish = (result) => { if (done) return; done = true; resolve(result); };
+                    const t0 = Date.now();
+                    const finish = (result) => {
+                        if (done) return; done = true;
+                        geoLog({ event: 'getCoords_finish', step: 'getCoordinates', type: result?.type || 'none', lng: result?.lng, lat: result?.lat, duration_ms: Date.now() - t0 });
+                        resolve(result);
+                    };
 
-                    const hardTimer = setTimeout(() => finish(null), 9000);
+                    const hardTimer = setTimeout(() => {
+                        geoLog({ event: 'getCoords_timeout', step: 'getCoordinates', error: 'hard_timeout_9s', duration_ms: Date.now() - t0 });
+                        finish(null);
+                    }, 9000);
 
+                    geoLog({ event: 'gps_attempt', step: 'gps', detail: 'AMap.Geolocation.getCurrentPosition start' });
                     const geo = new AMap.Geolocation({
                         enableHighAccuracy: true,
                         timeout: 8000,
@@ -1169,12 +1234,23 @@
                     });
 
                     geo.getCurrentPosition((status, result) => {
+                        const gpsErrDetail = result ? JSON.stringify({
+                            status, hasPosition: !!(result.position),
+                            info: result.info, message: result.message,
+                            errorCode: result.errorCode,
+                            locationType: result.locationType,
+                            addressComponent: result.addressComponent,
+                        }).substring(0, 600) : 'null_result';
+                        geoLog({ event: 'gps_callback', step: 'gps', status: status, error: result?.message || result?.info || '', errorCode: result?.errorCode || '', detail: gpsErrDetail });
                         if (status === 'complete' && result && result.position) {
                             clearTimeout(hardTimer);
                             finish({ lng: result.position.lng, lat: result.position.lat, type: 'gps' });
                         } else {
+                            geoLog({ event: 'citysearch_fallback', step: 'citysearch', detail: 'GPS failed, trying CitySearch' });
                             const city = new AMap.CitySearch();
                             city.getLocalCity((s2, r2) => {
+                                const csDetail = r2 ? JSON.stringify({ status: s2, hasBounds: !!(r2.bounds), info: r2.info, city: r2.city, province: r2.province }).substring(0, 300) : 'null_result';
+                                geoLog({ event: 'citysearch_callback', step: 'citysearch', status: s2, error: r2?.info || '', detail: csDetail });
                                 clearTimeout(hardTimer);
                                 if (s2 === 'complete' && r2 && r2.bounds) {
                                     const center = r2.bounds.getCenter();
@@ -1200,6 +1276,8 @@
             if (!AMapRef.current || !mapRef.current || refreshing) return;
             const AMap = AMapRef.current;
             const map = mapRef.current;
+            const t0 = Date.now();
+            geoLog({ event: 'refresh_start', step: 'refresh' });
             setRefreshing(true);
             setLocStatus('loading');
             setLocLabel('定位中...');
@@ -1207,6 +1285,7 @@
             let done = false;
             const finish = (status, label, lng, lat) => {
                 if (done) return; done = true;
+                geoLog({ event: 'refresh_done', step: 'refresh', type: status, lng, lat, duration_ms: Date.now() - t0 });
                 setLocStatus(status);
                 setLocLabel(label);
                 setRefreshing(false);
@@ -1219,8 +1298,10 @@
             };
 
             const hardTimer = setTimeout(() => {
+                geoLog({ event: 'refresh_gps_timeout', step: 'refresh', error: 'hard_timeout_9s', duration_ms: Date.now() - t0 });
                 const city = new AMap.CitySearch();
                 city.getLocalCity((s, r) => {
+                    geoLog({ event: 'refresh_citysearch_callback', step: 'refresh', status: s, error: r?.info || '' });
                     if (done) return;
                     if (s === 'complete' && r && r.bounds) {
                         const c = r.bounds.getCenter();
@@ -1231,18 +1312,21 @@
                 });
             }, 9000);
 
+            geoLog({ event: 'refresh_gps_attempt', step: 'refresh' });
             const geo = new AMap.Geolocation({
                 enableHighAccuracy: true, timeout: 8000, maximumAge: 0,
                 getCityWhenFail: false,
                 showButton: false, showMarker: false, showCircle: false, panToLocation: false,
             });
             geo.getCurrentPosition((status, result) => {
+                geoLog({ event: 'refresh_gps_callback', step: 'refresh', status: status, error: result?.message || result?.info || '', errorCode: result?.errorCode || '' });
                 if (status === 'complete' && result?.position) {
                     clearTimeout(hardTimer);
                     finish('gps', 'GPS 定位', result.position.lng, result.position.lat);
                 } else {
                     const city = new AMap.CitySearch();
                     city.getLocalCity((s2, r2) => {
+                        geoLog({ event: 'refresh_citysearch_callback', step: 'refresh', status: s2, error: r2?.info || '' });
                         clearTimeout(hardTimer);
                         if (done) return;
                         if (s2 === 'complete' && r2 && r2.bounds) {
