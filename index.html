@@ -1085,63 +1085,29 @@
             setRefreshing(true);
             if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
 
-            var done = false;
-
-            function place(lng, lat, type) {
-                if (done) return;
-                done = true;
-                map.setCenter([lng, lat]);
-                map.setZoom(17);
-                if (onLocationUpdate) onLocationUpdate({ lng: lng, lat: lat });
-                if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
-                var marker = new AMap.Marker({
-                    position: [lng, lat],
-                    content: '<div style="width:18px;height:18px;border-radius:50%;background:#1565EF;border:3px solid #fff;box-shadow:0 0 0 5px rgba(21,101,239,0.22),0 2px 8px rgba(0,0,0,0.2)"></div>',
-                    offset: new AMap.Pixel(-9, -9),
-                    zIndex: 200,
-                });
-                map.add(marker);
-                markerRef.current = marker;
-                setLocStatus(type);
-                setLocLabel(type === 'gps' ? 'GPS 定位' : '网络定位');
-                setRefreshing(false);
-            }
-
-            // 使用AMap.Geolocation — 融合GPS+IP，走国内服务器
-            // GeoLocationFirst移动端默认true，优先触发H5定位权限
-            // enableHighAccuracy默认false必须显式true
-            // getCityWhenFail保证失败也能拿到城市
-            // convert自动WGS-84→GCJ-02
-            var geo = new AMap.Geolocation({
-                enableHighAccuracy: true,
-                timeout: 15000,
-                GeoLocationFirst: true,
-                getCityWhenFail: true,
-                convert: true,
-                showButton: false,
-                showMarker: false,
-                showCircle: false,
-                panToLocation: false,
-            });
-
-            geo.getCurrentPosition(function(status, result) {
-                if (status === 'complete') {
-                    var lng = result.position.lng;
-                    var lat = result.position.lat;
-                    var locType = result.location_type;
-                    // h5=GPS定位, ip/ipcity=网络定位
-                    place(lng, lat, (locType === 'h5') ? 'gps' : 'ip');
-                } else {
-                    // 定位失败 — 用CitySearch保底
-                    new AMap.CitySearch().getLocalCity(function(s, r) {
-                        if (done) return;
-                        if (s === 'complete' && r.bounds) {
-                            var c = r.bounds.getCenter();
-                            place(c.lng, c.lat, 'ip');
-                        } else {
-                            place(116.397428, 39.90923, 'ip');
-                        }
+            // 直接IP定位 — 走国内服务器，最快最稳
+            new AMap.CitySearch().getLocalCity(function(status, result) {
+                if (status === 'complete' && result.bounds) {
+                    var c = result.bounds.getCenter();
+                    map.setCenter([c.lng, c.lat]);
+                    map.setZoom(17);
+                    if (onLocationUpdate) onLocationUpdate({ lng: c.lng, lat: c.lat });
+                    if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
+                    var marker = new AMap.Marker({
+                        position: [c.lng, c.lat],
+                        content: '<div style="width:18px;height:18px;border-radius:50%;background:#1565EF;border:3px solid #fff;box-shadow:0 0 0 5px rgba(21,101,239,0.22),0 2px 8px rgba(0,0,0,0.2)"></div>',
+                        offset: new AMap.Pixel(-9, -9),
+                        zIndex: 200,
                     });
+                    map.add(marker);
+                    markerRef.current = marker;
+                    setLocStatus('ip');
+                    setLocLabel(result.city || '网络定位');
+                    setRefreshing(false);
+                } else {
+                    setLocStatus('failed');
+                    setLocLabel('定位失败');
+                    setRefreshing(false);
                 }
             });
         }
