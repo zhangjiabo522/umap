@@ -1719,7 +1719,7 @@
         function parseContent(text) {
             if (!text) return [{ type: 'text', value: '' }];
             // Parse all code block types: location, tool_call, itinerary, comparison, travel_tip
-            const parts = text.split(/```(location|tool_call|itinerary|comparison|travel_tip)\s*\n([\s\S]*?)\n```/g);
+            const parts = text.split(/```(location|tool_call|itinerary|comparison|travel_tip)\s*\n([\s\S]*?)\s*```/g);
             const segments = [];
             for (let i = 0; i < parts.length; i++) {
                 if (i % 3 === 0) {
