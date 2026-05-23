@@ -420,7 +420,7 @@ function showChatMessages(PDO $db, int $sid): void {
                 <?php endif; ?>
 
                 <?php
-                $attachments = json_decode($m['attachments'], true);
+                $attachments = $m['attachments'] ? json_decode($m['attachments'], true) : null;
                 if (!empty($attachments)):
                     foreach ($attachments as $a):
                 ?>
@@ -431,14 +431,14 @@ function showChatMessages(PDO $db, int $sid): void {
                 ?>
 
                 <?php
-                $fav = json_decode($m['favorite'], true);
+                $fav = $m['favorite'] ? json_decode($m['favorite'], true) : null;
                 if (!empty($fav)):
                 ?>
                 <div class="msg-favorite">收藏地点: <?= htmlspecialchars($fav['name'] ?? '') ?> (<?= htmlspecialchars($fav['city'] ?? '') ?>)</div>
                 <?php endif; ?>
 
                 <?php
-                $searchResults = json_decode($m['search_results'], true);
+                $searchResults = $m['search_results'] ? json_decode($m['search_results'], true) : null;
                 if (!empty($searchResults)):
                 ?>
                 <details class="msg-search">
