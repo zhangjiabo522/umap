@@ -1232,18 +1232,27 @@
                         tryIPGeolocation();
                     }
 
-                    // Tier 2: Free IP geolocation (HTTPS supported, no key needed)
+                    // Tier 2: APIPPro IP geolocation (https://ipv4.ink)
                     function tryIPGeolocation() {
                         geoLog({ event: 'ipapi_attempt', step: 'ipapi' });
-                        fetch('https://ipwho.is/')
+                        fetch('https://api.ipify.org?format=json')
+                            .then(r => r.json())
+                            .then(ipData => {
+                                const ip = ipData.ip;
+                                geoLog({ event: 'ipapi_got_ip', step: 'ipapi', detail: 'ip=' + ip });
+                                return fetch('https://ipv4.ink/ipv4?ip=' + encodeURIComponent(ip));
+                            })
                             .then(r => r.json())
                             .then(data => {
-                                if (data.success !== false && data.latitude != null && data.longitude != null) {
-                                    geoLog({ event: 'ipapi_ok', step: 'ipapi', lng: data.longitude, lat: data.latitude, detail: 'city=' + (data.city||'') + ' ip=' + (data.ip||'') });
+                                const d = data.data || data;
+                                if (d.latitude != null && d.longitude != null) {
+                                    const lng = parseFloat(d.longitude);
+                                    const lat = parseFloat(d.latitude);
+                                    geoLog({ event: 'ipapi_ok', step: 'ipapi', lng, lat, detail: 'city=' + (d.city_name||d.city||'') + ' isp=' + (d.isp||'') });
                                     clearTimeout(hardTimer);
-                                    finish({ lng: data.longitude, lat: data.latitude, type: 'ip' });
+                                    finish({ lng, lat, type: 'ip' });
                                 } else {
-                                    geoLog({ event: 'ipapi_fail', step: 'ipapi', error: data.message || 'no data' });
+                                    geoLog({ event: 'ipapi_fail', step: 'ipapi', error: 'no coords in response' });
                                     tryAMapCitySearch();
                                 }
                             })
@@ -1329,16 +1338,23 @@
                 refreshIPFallback();
             }
 
-            // Tier 2: Free IP geolocation (HTTPS supported)
+            // Tier 2: APIPPro IP geolocation
             function refreshIPFallback() {
                 geoLog({ event: 'refresh_ipapi', step: 'refresh' });
-                fetch('https://ipwho.is/')
+                fetch('https://api.ipify.org?format=json')
+                    .then(r => r.json())
+                    .then(ipData => {
+                        return fetch('https://ipv4.ink/ipv4?ip=' + encodeURIComponent(ipData.ip));
+                    })
                     .then(r => r.json())
                     .then(data => {
-                        if (data.success !== false && data.latitude != null && data.longitude != null) {
-                            geoLog({ event: 'refresh_ipapi_ok', step: 'refresh', lng: data.longitude, lat: data.latitude });
+                        const d = data.data || data;
+                        if (d.latitude != null && d.longitude != null) {
+                            const lng = parseFloat(d.longitude);
+                            const lat = parseFloat(d.latitude);
+                            geoLog({ event: 'refresh_ipapi_ok', step: 'refresh', lng, lat });
                             clearTimeout(hardTimer);
-                            finish('ip', 'IP 定位', data.longitude, data.latitude);
+                            finish('ip', 'IP 定位', lng, lat);
                         } else {
                             refreshCitySearch();
                         }
