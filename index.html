@@ -1375,18 +1375,24 @@
                     // Tier 3: AMap CitySearch (fallback)
                     function tryAMapCitySearch() {
                         geoLog({ event: 'citysearch_attempt', step: 'citysearch' });
-                        const city = new AMap.CitySearch();
-                        city.getLocalCity((s2, r2) => {
-                            const csDetail = r2 ? JSON.stringify({ status: s2, hasBounds: !!(r2.bounds), info: r2.info, city: r2.city, province: r2.province }).substring(0, 300) : 'null_result';
-                            geoLog({ event: 'citysearch_callback', step: 'citysearch', status: s2, error: r2?.info || '', detail: csDetail });
+                        try {
+                            const city = new AMap.CitySearch();
+                            city.getLocalCity((s2, r2) => {
+                                const csDetail = r2 ? JSON.stringify({ status: s2, hasBounds: !!(r2.bounds), info: r2.info, city: r2.city, province: r2.province }).substring(0, 300) : 'null_result';
+                                geoLog({ event: 'citysearch_callback', step: 'citysearch', status: s2, error: r2?.info || '', detail: csDetail });
+                                clearTimeout(hardTimer);
+                                if (s2 === 'complete' && r2 && r2.bounds) {
+                                    const center = r2.bounds.getCenter();
+                                    finish({ lng: center.getLng(), lat: center.getLat(), type: 'ip' });
+                                } else {
+                                    finish(null);
+                                }
+                            });
+                        } catch (e) {
+                            geoLog({ event: 'citysearch_error', step: 'citysearch', error: e.message });
                             clearTimeout(hardTimer);
-                            if (s2 === 'complete' && r2 && r2.bounds) {
-                                const center = r2.bounds.getCenter();
-                                finish({ lng: center.getLng(), lat: center.getLat(), type: 'ip' });
-                            } else {
-                                finish(null);
-                            }
-                        });
+                            finish(null);
+                        }
                     }
                 });
             }
@@ -1468,17 +1474,23 @@
             // Tier 3: AMap CitySearch
             function refreshCitySearch() {
                 geoLog({ event: 'refresh_citysearch', step: 'refresh' });
-                const city = new AMap.CitySearch();
-                city.getLocalCity((s, r) => {
-                    geoLog({ event: 'refresh_citysearch_cb', step: 'refresh', status: s, error: r?.info || '' });
+                try {
+                    const city = new AMap.CitySearch();
+                    city.getLocalCity((s, r) => {
+                        geoLog({ event: 'refresh_citysearch_cb', step: 'refresh', status: s, error: r?.info || '' });
+                        clearTimeout(hardTimer);
+                        if (s === 'complete' && r && r.bounds) {
+                            const c = r.bounds.getCenter();
+                            finish('ip', 'IP 定位', c.getLng(), c.getLat());
+                        } else {
+                            finish('failed', '定位失败');
+                        }
+                    });
+                } catch (e) {
+                    geoLog({ event: 'refresh_citysearch_err', step: 'refresh', error: e.message });
                     clearTimeout(hardTimer);
-                    if (s === 'complete' && r && r.bounds) {
-                        const c = r.bounds.getCenter();
-                        finish('ip', 'IP 定位', c.getLng(), c.getLat());
-                    } else {
-                        finish('failed', '定位失败');
-                    }
-                });
+                    finish('failed', '定位失败');
+                }
             }
         }
 
@@ -1621,6 +1633,7 @@
         const [searchEnabled, setSearchEnabled] = useState(false);
         const [savedLocs, setSavedLocs] = useState({});
         const [sessionId, setSessionId] = useState(null);
+        const sessionIdRef = useRef(null); // Always holds latest sessionId for tool continue closure
         const [sessionTitle, setSessionTitle] = useState('新对话');
         const [showHistory, setShowHistory] = useState(false);
         const [sessions, setSessions] = useState([]);
@@ -1748,11 +1761,12 @@
             useEffect(() => {
                 if (!hasCoord || !mapDivRef.current) return;
                 let destroyed = false;
+                const el = mapDivRef.current; // Capture ref at effect start
                 (async () => {
                     const AMap = await getAMap();
-                    if (!AMap || destroyed) return;
+                    if (!AMap || destroyed || !el.isConnected) return;
                     const [lng, lat] = loc.location.split(',').map(Number);
-                    const map = new AMap.Map(mapDivRef.current, {
+                    const map = new AMap.Map(el, {
                         zoom: 15,
                         center: [lng, lat],
                         mapStyle: 'amap://styles/normal',
@@ -2090,7 +2104,7 @@
             if (isContinue) {
                 formData.append('continue', '1');
                 formData.append('message', '继续');
-                formData.append('session_id', sessionId);
+                formData.append('session_id', sessionIdRef.current || sessionId);
                 formData.append('previous_tool_results', JSON.stringify(continueParams.toolResults));
             } else {
                 if (text) formData.append('message', text);
@@ -2138,6 +2152,7 @@
                         try {
                             const d = JSON.parse(evtData);
                             if (evtType === 'session') {
+                                sessionIdRef.current = d.session_id;
                                 setSessionId(d.session_id);
                                 setSessionTitle(d.title || '新对话');
                             } else if (evtType === 'title') {
@@ -2151,7 +2166,7 @@
                                 fullText += d.text || '';
                                 updateAiMsg({ content: fullText });
                             } else if (evtType === 'done') {
-                                if (d.session_id) setSessionId(d.session_id);
+                                if (d.session_id) { sessionIdRef.current = d.session_id; setSessionId(d.session_id); }
                                 setStatusText('');
                             } else if (evtType === 'error') {
                                 message.error(d.message || 'AI 回答失败');
