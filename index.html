@@ -1826,7 +1826,7 @@
         }
 
         function ToolCallBanner({ tool, status }) {
-            const toolNames = { search_places: '搜索地点', get_nearby: '搜索周边', get_weather: '查询天气', web_search: '联网搜索', fetch_page: '阅读网页' };
+            const toolNames = { search_places: '搜索地点', get_nearby: '搜索周边', get_weather: '查询天气', web_search: '联网搜索', fetch_page: '阅读网页', search_hotels: '比价酒店' };
             const label = toolNames[tool] || tool;
             return (
                 <div className={`ai-toolcall-banner ${status}`}>
@@ -1867,6 +1867,32 @@
                                 </div>
                             ))}
                         </div>
+                    </div>
+                );
+            }
+            if (tool === 'search_hotels') {
+                const results = result.results || [];
+                return (
+                    <div className="ai-tool-result">
+                        <div className="ai-tool-result-header">
+                            🏨 {result.city}{result.area} · {result.count} 条比价结果
+                            {result.checkin && <span style={{marginLeft:8,fontSize:11}}>{result.checkin} ~ {result.checkout}</span>}
+                        </div>
+                        <div className="ai-tool-result-places">
+                            {results.map((r, i) => (
+                                <a key={i} className="ai-tool-result-place" href={r.url} target="_blank" rel="noopener noreferrer" style={{textDecoration:'none',color:'inherit'}}>
+                                    <div className={`ai-tool-result-place-rank${i < 3 ? ' top3' : ''}`}>{i + 1}</div>
+                                    <div className="ai-tool-result-place-info">
+                                        <div className="ai-tool-result-place-name">{r.title}</div>
+                                        <div className="ai-tool-result-place-addr">{r.content}</div>
+                                        <div className="ai-tool-result-place-meta">
+                                            <span>🔗 {r.source}</span>
+                                        </div>
+                                    </div>
+                                </a>
+                            ))}
+                        </div>
+                        <div style={{padding:'6px 14px 10px',fontSize:11,color:'var(--text-muted)',borderTop:'1px solid #f0f4f8'}}>{result.note}</div>
                     </div>
                 );
             }

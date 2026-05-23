@@ -419,6 +419,7 @@ function buildSystemPrompt(array $profile, float $userLng = 0, float $userLat = 
   - 搜索具体地点/餐厅/酒店/景点（如"有什么好吃的"、"推荐XX"）→ 调用 search_places
   - 附近搜索（如"附近有什么"、"周边"）→ 调用 get_nearby
   - 实时信息（如门票价格、营业时间、最新攻略、活动、政策）→ 调用 web_search
+  - 酒店比价/订酒店/住宿推荐（如"比较酒店价格"、"推荐酒店"、"住哪里便宜"）→ 调用 search_hotels
   - 需要深入了解某篇搜索结果 → 调用 fetch_page
 
 2.【工具调用格式】每次回复最多调用 1 个执行工具，工具调用代码块放在回复末尾：
@@ -462,6 +463,7 @@ get_nearby   → {"tool":"get_nearby","params":{"lng":经度,"lat":纬度,"type"
 get_weather  → {"tool":"get_weather","params":{"city":"城市"}}
 web_search   → {"tool":"web_search","params":{"query":"具体搜索词"}}
 fetch_page   → {"tool":"fetch_page","params":{"url":"完整URL"}}
+search_hotels → {"tool":"search_hotels","params":{"city":"城市","area":"区域","checkin":"YYYY-MM-DD","checkout":"YYYY-MM-DD"}}
 
 示例对话：
 用户："北京故宫附近有什么好吃的"

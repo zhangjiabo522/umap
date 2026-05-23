@@ -30,6 +30,7 @@ try {
         'get_weather' => getWeather($params),
         'web_search' => webSearch($params),
         'fetch_page' => fetchPage($params),
+        'search_hotels' => searchHotels($params),
         default => throw new RuntimeException("未知工具: {$tool}"),
     };
     jsonResponse(['success' => true, 'tool' => $tool, 'result' => $result]);
@@ -214,6 +215,71 @@ function fetchPage(array $params): array {
         'hostname' => $data['hostname'] ?? '',
         'text' => $data['text'] ?? '',
         'length' => $data['length'] ?? 0,
+    ];
+}
+
+function searchHotels(array $params): array {
+    $city = trim($params['city'] ?? '');
+    $area = trim($params['area'] ?? '');
+    $checkin = trim($params['checkin'] ?? '');
+    $checkout = trim($params['checkout'] ?? '');
+    if (!$city && !$area) throw new RuntimeException('缺少城市或区域名称');
+
+    $location = $area ? "{$city}{$area}" : $city;
+    $dateHint = ($checkin && $checkout) ? " {$checkin}入住 {$checkout}退房" : '';
+
+    // Build optimized search queries for hotel price comparison
+    $queries = [
+        "{$location} 酒店 价格 预订{$dateHint}",
+        "{$location} 酒店 推荐 性价比 排行",
+    ];
+
+    $allResults = [];
+    foreach ($queries as $q) {
+        $url = 'http://127.0.0.1:8888/search?format=json&categories=general&language=zh-CN&q=' . urlencode($q);
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 12,
+            CURLOPT_HTTPHEADER => ['Accept: application/json'],
+        ]);
+        $resp = curl_exec($ch);
+        $err = curl_error($ch);
+        curl_close($ch);
+        if ($err) continue;
+
+        $data = json_decode($resp, true);
+        if (!is_array($data)) continue;
+
+        foreach ($data['results'] ?? [] as $r) {
+            $title = $r['title'] ?? '';
+            $content = $r['content'] ?? '';
+            $url = $r['url'] ?? '';
+            $engine = implode(',', $r['engines'] ?? []);
+            // Skip irrelevant results
+            if (stripos($title . $content, '百度百科') !== false) continue;
+            if (stripos($title . $content, '维基百科') !== false) continue;
+            // Deduplicate by URL
+            $key = md5($url);
+            if (isset($allResults[$key])) continue;
+            $allResults[$key] = [
+                'title' => $title,
+                'content' => $content,
+                'url' => $url,
+                'source' => $engine ?: 'web',
+            ];
+        }
+    }
+
+    $results = array_values(array_slice($allResults, 0, 12));
+    return [
+        'city' => $city,
+        'area' => $area,
+        'checkin' => $checkin,
+        'checkout' => $checkout,
+        'count' => count($results),
+        'results' => $results,
+        'note' => '价格数据来自搜索引擎聚合结果，仅供参考。实际价格请以预订网站为准。',
     ];
 }
 
