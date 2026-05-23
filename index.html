@@ -1133,18 +1133,8 @@
 
             async function init() {
                 const t0 = Date.now();
-                // Check browser geolocation permission status
                 const browserGeoPerm = await checkBrowserGeoPermission();
                 geoLog({ event: 'init_start', step: 'begin', detail: 'browser_geo_permission=' + browserGeoPerm });
-
-                // Also try browser native geolocation as diagnostic
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(
-                        (pos) => { geoLog({ event: 'browser_geo_ok', step: 'diagnostic', lng: pos.coords.longitude, lat: pos.coords.latitude, detail: 'accuracy=' + pos.coords.accuracy }); },
-                        (err) => { geoLog({ event: 'browser_geo_err', step: 'diagnostic', error: err.message, errorCode: err.code, detail: 'code=' + err.code + ' msg=' + err.message }); },
-                        { timeout: 5000, maximumAge: 60000 }
-                    );
-                }
                 try {
                     setLocStatus('loading');
                     setLocLabel('定位中...');
@@ -1217,50 +1207,68 @@
                     };
 
                     const hardTimer = setTimeout(() => {
-                        geoLog({ event: 'getCoords_timeout', step: 'getCoordinates', error: 'hard_timeout_9s', duration_ms: Date.now() - t0 });
+                        geoLog({ event: 'getCoords_timeout', step: 'getCoordinates', error: 'hard_timeout_12s', duration_ms: Date.now() - t0 });
                         finish(null);
-                    }, 9000);
+                    }, 12000);
 
-                    geoLog({ event: 'gps_attempt', step: 'gps', detail: 'AMap.Geolocation.getCurrentPosition start' });
-                    const geo = new AMap.Geolocation({
-                        enableHighAccuracy: true,
-                        timeout: 8000,
-                        maximumAge: 0,
-                        getCityWhenFail: false,
-                        showButton: false,
-                        showMarker: false,
-                        showCircle: false,
-                        panToLocation: false,
-                    });
-
-                    geo.getCurrentPosition((status, result) => {
-                        const gpsErrDetail = result ? JSON.stringify({
-                            status, hasPosition: !!(result.position),
-                            info: result.info, message: result.message,
-                            errorCode: result.errorCode,
-                            locationType: result.locationType,
-                            addressComponent: result.addressComponent,
-                        }).substring(0, 600) : 'null_result';
-                        geoLog({ event: 'gps_callback', step: 'gps', status: status, error: result?.message || result?.info || '', errorCode: result?.errorCode || '', detail: gpsErrDetail });
-                        if (status === 'complete' && result && result.position) {
-                            clearTimeout(hardTimer);
-                            finish({ lng: result.position.lng, lat: result.position.lat, type: 'gps' });
-                        } else {
-                            geoLog({ event: 'citysearch_fallback', step: 'citysearch', detail: 'GPS failed, trying CitySearch' });
-                            const city = new AMap.CitySearch();
-                            city.getLocalCity((s2, r2) => {
-                                const csDetail = r2 ? JSON.stringify({ status: s2, hasBounds: !!(r2.bounds), info: r2.info, city: r2.city, province: r2.province }).substring(0, 300) : 'null_result';
-                                geoLog({ event: 'citysearch_callback', step: 'citysearch', status: s2, error: r2?.info || '', detail: csDetail });
+                    // Tier 1: Browser native Geolocation API
+                    if (navigator.geolocation) {
+                        geoLog({ event: 'browser_gps_attempt', step: 'browser_gps', detail: 'navigator.geolocation.getCurrentPosition' });
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => {
+                                geoLog({ event: 'browser_gps_ok', step: 'browser_gps', lng: pos.coords.longitude, lat: pos.coords.latitude, detail: 'accuracy=' + pos.coords.accuracy });
                                 clearTimeout(hardTimer);
-                                if (s2 === 'complete' && r2 && r2.bounds) {
-                                    const center = r2.bounds.getCenter();
-                                    finish({ lng: center.getLng(), lat: center.getLat(), type: 'ip' });
+                                finish({ lng: pos.coords.longitude, lat: pos.coords.latitude, type: 'gps' });
+                            },
+                            (err) => {
+                                geoLog({ event: 'browser_gps_err', step: 'browser_gps', error: err.message, errorCode: err.code });
+                                // Tier 2: Free IP geolocation service
+                                tryIPGeolocation();
+                            },
+                            { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+                        );
+                    } else {
+                        geoLog({ event: 'browser_gps_unavailable', step: 'browser_gps', error: 'navigator.geolocation not available' });
+                        tryIPGeolocation();
+                    }
+
+                    // Tier 2: ip-api.com (free, no key needed)
+                    function tryIPGeolocation() {
+                        geoLog({ event: 'ipapi_attempt', step: 'ipapi' });
+                        fetch('https://ip-api.com/json/?fields=status,message,lat,lon,city,regionName,country,query')
+                            .then(r => r.json())
+                            .then(data => {
+                                if (data.status === 'success' && data.lat != null && data.lon != null) {
+                                    geoLog({ event: 'ipapi_ok', step: 'ipapi', lng: data.lon, lat: data.lat, detail: 'city=' + data.city + ' ip=' + data.query });
+                                    clearTimeout(hardTimer);
+                                    finish({ lng: data.lon, lat: data.lat, type: 'ip' });
                                 } else {
-                                    finish(null);
+                                    geoLog({ event: 'ipapi_fail', step: 'ipapi', error: data.message || 'no data' });
+                                    tryAMapCitySearch();
                                 }
+                            })
+                            .catch((e) => {
+                                geoLog({ event: 'ipapi_err', step: 'ipapi', error: e.message });
+                                tryAMapCitySearch();
                             });
-                        }
-                    });
+                    }
+
+                    // Tier 3: AMap CitySearch (fallback)
+                    function tryAMapCitySearch() {
+                        geoLog({ event: 'citysearch_attempt', step: 'citysearch' });
+                        const city = new AMap.CitySearch();
+                        city.getLocalCity((s2, r2) => {
+                            const csDetail = r2 ? JSON.stringify({ status: s2, hasBounds: !!(r2.bounds), info: r2.info, city: r2.city, province: r2.province }).substring(0, 300) : 'null_result';
+                            geoLog({ event: 'citysearch_callback', step: 'citysearch', status: s2, error: r2?.info || '', detail: csDetail });
+                            clearTimeout(hardTimer);
+                            if (s2 === 'complete' && r2 && r2.bounds) {
+                                const center = r2.bounds.getCenter();
+                                finish({ lng: center.getLng(), lat: center.getLat(), type: 'ip' });
+                            } else {
+                                finish(null);
+                            }
+                        });
+                    }
                 });
             }
 
@@ -1298,11 +1306,53 @@
             };
 
             const hardTimer = setTimeout(() => {
-                geoLog({ event: 'refresh_gps_timeout', step: 'refresh', error: 'hard_timeout_9s', duration_ms: Date.now() - t0 });
+                geoLog({ event: 'refresh_timeout', step: 'refresh', error: 'hard_timeout_12s', duration_ms: Date.now() - t0 });
+                finish('failed', '定位超时');
+            }, 12000);
+
+            // Tier 1: Browser native GPS
+            if (navigator.geolocation) {
+                geoLog({ event: 'refresh_browser_gps', step: 'refresh' });
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        geoLog({ event: 'refresh_browser_gps_ok', step: 'refresh', lng: pos.coords.longitude, lat: pos.coords.latitude });
+                        clearTimeout(hardTimer);
+                        finish('gps', 'GPS 定位', pos.coords.longitude, pos.coords.latitude);
+                    },
+                    (err) => {
+                        geoLog({ event: 'refresh_browser_gps_err', step: 'refresh', error: err.message, errorCode: err.code });
+                        refreshIPFallback();
+                    },
+                    { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+                );
+            } else {
+                refreshIPFallback();
+            }
+
+            // Tier 2: ip-api.com
+            function refreshIPFallback() {
+                geoLog({ event: 'refresh_ipapi', step: 'refresh' });
+                fetch('https://ip-api.com/json/?fields=status,message,lat,lon,city,regionName,country,query')
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.status === 'success' && data.lat != null && data.lon != null) {
+                            geoLog({ event: 'refresh_ipapi_ok', step: 'refresh', lng: data.lon, lat: data.lat });
+                            clearTimeout(hardTimer);
+                            finish('ip', 'IP 定位', data.lon, data.lat);
+                        } else {
+                            refreshCitySearch();
+                        }
+                    })
+                    .catch(() => refreshCitySearch());
+            }
+
+            // Tier 3: AMap CitySearch
+            function refreshCitySearch() {
+                geoLog({ event: 'refresh_citysearch', step: 'refresh' });
                 const city = new AMap.CitySearch();
                 city.getLocalCity((s, r) => {
-                    geoLog({ event: 'refresh_citysearch_callback', step: 'refresh', status: s, error: r?.info || '' });
-                    if (done) return;
+                    geoLog({ event: 'refresh_citysearch_cb', step: 'refresh', status: s, error: r?.info || '' });
+                    clearTimeout(hardTimer);
                     if (s === 'complete' && r && r.bounds) {
                         const c = r.bounds.getCenter();
                         finish('ip', 'IP 定位', c.getLng(), c.getLat());
@@ -1310,34 +1360,7 @@
                         finish('failed', '定位失败');
                     }
                 });
-            }, 9000);
-
-            geoLog({ event: 'refresh_gps_attempt', step: 'refresh' });
-            const geo = new AMap.Geolocation({
-                enableHighAccuracy: true, timeout: 8000, maximumAge: 0,
-                getCityWhenFail: false,
-                showButton: false, showMarker: false, showCircle: false, panToLocation: false,
-            });
-            geo.getCurrentPosition((status, result) => {
-                geoLog({ event: 'refresh_gps_callback', step: 'refresh', status: status, error: result?.message || result?.info || '', errorCode: result?.errorCode || '' });
-                if (status === 'complete' && result?.position) {
-                    clearTimeout(hardTimer);
-                    finish('gps', 'GPS 定位', result.position.lng, result.position.lat);
-                } else {
-                    const city = new AMap.CitySearch();
-                    city.getLocalCity((s2, r2) => {
-                        geoLog({ event: 'refresh_citysearch_callback', step: 'refresh', status: s2, error: r2?.info || '' });
-                        clearTimeout(hardTimer);
-                        if (done) return;
-                        if (s2 === 'complete' && r2 && r2.bounds) {
-                            const c = r2.bounds.getCenter();
-                            finish('ip', 'IP 定位', c.getLng(), c.getLat());
-                        } else {
-                            finish('failed', '定位失败');
-                        }
-                    });
-                }
-            });
+            }
         }
 
 
