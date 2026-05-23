@@ -4,7 +4,7 @@ require_once __DIR__ . '/../includes/helpers.php';
 
 loadEnv(__DIR__ . '/../.env');
 
-define('AMAP_KEY', $_ENV['AMAP_KEY'] ?? '');
+define('AMAP_KEY', $_ENV['AMAP_WEB_KEY'] ?? $_ENV['AMAP_KEY'] ?? '');
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');

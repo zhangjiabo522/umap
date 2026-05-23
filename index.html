@@ -2307,7 +2307,14 @@
                     })}
                     {loading && (() => {
                         const lastAi = [...messages].reverse().find(m => m.role === 'ai');
-                        if (lastAi && (lastAi.content || lastAi.think) && !lastAi.isToolContinuation) return null;
+                        if (!lastAi) return null;
+                        // Hide loading when AI already responded with content
+                        if (!lastAi.isToolContinuation && (lastAi.content || lastAi.think)) return null;
+                        // Hide loading during tool continuation if previous AI message has content
+                        if (lastAi.isToolContinuation && !lastAi.content && !lastAi.think) {
+                            const prevAi = [...messages].reverse().find(m => m.role === 'ai' && m !== lastAi);
+                            if (prevAi && prevAi.content) return null;
+                        }
                         return (
                             <div className="ai-msg ai-msg-ai">
                                 <div className="ai-msg-bubble">
