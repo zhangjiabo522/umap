@@ -1079,18 +1079,26 @@
             };
         }, []);
 
+        var watchId = null;
+
         function locateUser(AMap, map) {
             setLocStatus('loading');
             setLocLabel('定位中...');
             setRefreshing(true);
             if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
 
+            // 清除之前的watch
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
             function showOnMap(lng, lat, type) {
                 map.setCenter([lng, lat]);
                 map.setZoom(17);
                 if (onLocationUpdate) onLocationUpdate({ lng, lat });
                 if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
-                const marker = new AMap.Marker({
+                var marker = new AMap.Marker({
                     position: [lng, lat],
                     content: '<div style="width:18px;height:18px;border-radius:50%;background:#1565EF;border:3px solid #fff;box-shadow:0 0 0 5px rgba(21,101,239,0.22),0 2px 8px rgba(0,0,0,0.2)"></div>',
                     offset: new AMap.Pixel(-9, -9),
@@ -1103,8 +1111,9 @@
                 setRefreshing(false);
             }
 
-            function ipFallback() {
-                new AMap.CitySearch().getLocalCity((status, result) => {
+            // 浏览器不支持定位，用IP保底
+            if (!navigator.geolocation) {
+                new AMap.CitySearch().getLocalCity(function(status, result) {
                     if (status === 'complete' && result.bounds) {
                         map.setBounds(result.bounds);
                         var c = result.bounds.getCenter();
@@ -1115,31 +1124,40 @@
                         setRefreshing(false);
                     }
                 });
-            }
-
-            // 简单直接：先检测浏览器是否支持定位
-            if (!navigator.geolocation) {
-                ipFallback();
                 return;
             }
 
-            // 直接调用，触发系统权限弹窗
-            navigator.geolocation.getCurrentPosition(function(position) {
-                // 成功拿到GPS坐标
+            // 用watchPosition持续监听，触发权限弹窗
+            watchId = navigator.geolocation.watchPosition(function(position) {
                 var lng = position.coords.longitude;
                 var lat = position.coords.latitude;
                 var accuracy = position.coords.accuracy;
                 // WGS-84转GCJ-02
-                AMap.convertFrom([lng, lat], 'gps', function(status, result) {
-                    if (status === 'complete' && result.locations && result.locations[0]) {
-                        showOnMap(result.locations[0].lng, result.locations[0].lat, accuracy <= 100 ? 'gps' : 'ip');
+                AMap.convertFrom([lng, lat], 'gps', function(s, r) {
+                    if (s === 'complete' && r.locations && r.locations[0]) {
+                        showOnMap(r.locations[0].lng, r.locations[0].lat, accuracy <= 100 ? 'gps' : 'ip');
                     } else {
                         showOnMap(lng, lat, 'ip');
                     }
                 });
+                // 拿到一次后停止watch
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
             }, function(error) {
                 // 定位失败，用IP保底
-                ipFallback();
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+                new AMap.CitySearch().getLocalCity(function(status, result) {
+                    if (status === 'complete' && result.bounds) {
+                        map.setBounds(result.bounds);
+                        var c = result.bounds.getCenter();
+                        showOnMap(c.lng, c.lat, 'ip');
+                    } else {
+                        setLocStatus('failed');
+                        setLocLabel('定位失败');
+                        setRefreshing(false);
+                    }
+                });
             }, {
                 enableHighAccuracy: true,
                 timeout: 10000,
