@@ -23,6 +23,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.6/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="/api/recaptcha-js.php?render=explicit" async defer onerror=""></script>
     <style>
         :root {
@@ -2212,10 +2213,11 @@
     }
 
     // ==================== Footprints Page ====================
-    function FootprintsPage({ onBack }) {
+    function FootprintsPage({ onBack, user }) {
         const [provinces, setProvinces] = useState([]);
         const [records, setRecords] = useState([]);
         const [loading, setLoading] = useState(true);
+        const [generating, setGenerating] = useState(false);
         const chartRef = useRef(null);
         const chartInstance = useRef(null);
 
@@ -2300,11 +2302,97 @@
             }
         }, [loading, provinces]);
 
+        async function handleGenerateCard() {
+            if (!window.echarts || !window.html2canvas) {
+                message.error('组件加载中，请稍后重试');
+                return;
+            }
+            setGenerating(true);
+            try {
+                let geoData;
+                try {
+                    const geoRes = await fetch('/assets/china_provinces.json');
+                    geoData = await geoRes.json();
+                    window.echarts.registerMap('china', geoData);
+                } catch {
+                    message.error('地图数据加载失败');
+                    setGenerating(false);
+                    return;
+                }
+
+                const card = document.createElement('div');
+                card.style.cssText = 'position:fixed;left:-9999px;top:0;width:375px;background:#fff;border-radius:16px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;';
+                card.innerHTML = '<div style="background:linear-gradient(135deg,#059669,#10B981);padding:24px 20px 20px;color:#fff;">'
+                    + '<div style="font-size:20px;font-weight:800;">我的足迹</div>'
+                    + '<div style="font-size:13px;opacity:0.85;margin-top:4px;">已探访 ' + provinces.length + ' 个省份</div>'
+                    + '</div>'
+                    + '<div id="card-map" style="width:375px;height:280px;"></div>'
+                    + '<div style="padding:12px 20px 16px;">'
+                    + '<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+                    + provinces.map(function(p) {
+                        return '<span style="display:inline-block;padding:4px 12px;background:#ECFDF5;color:#059669;border-radius:999px;font-size:12px;font-weight:600;">' + p + '</span>';
+                    }).join('')
+                    + '</div>'
+                    + '</div>'
+                    + '<div style="padding:10px 20px;border-top:1px solid #F1F5F9;display:flex;justify-content:space-between;align-items:center;">'
+                    + '<span style="font-size:11px;color:#94A3B8;">UMap · 探索世界</span>'
+                    + '<span style="font-size:11px;color:#94A3B8;">' + new Date().toLocaleDateString('zh-CN') + '</span>'
+                    + '</div>';
+                document.body.appendChild(card);
+
+                const mapDiv = card.querySelector('#card-map');
+                const chart = window.echarts.init(mapDiv);
+                const visitedSet = new Set(provinces.map(function(p) { return normalizeProvinceName(p); }));
+                const mapData = geoData.features.map(function(f) {
+                    var name = f.properties.name;
+                    var shortName = normalizeProvinceName(name);
+                    return { name: name, value: visitedSet.has(shortName) ? 1 : 0 };
+                });
+                chart.setOption({
+                    visualMap: { show: false, min: 0, max: 1, inRange: { color: ['#E2E8F0', '#059669'] } },
+                    series: [{
+                        type: 'map', map: 'china', roam: false,
+                        label: { show: false },
+                        itemStyle: { borderColor: '#94A3B8', borderWidth: 0.8 },
+                        data: mapData,
+                    }],
+                });
+
+                await new Promise(function(r) { setTimeout(r, 800); });
+
+                const canvas = await html2canvas(card, {
+                    backgroundColor: '#ffffff',
+                    scale: 2,
+                    useCORS: true,
+                    width: 375,
+                });
+
+                chart.dispose();
+                document.body.removeChild(card);
+
+                const link = document.createElement('a');
+                link.download = '我的足迹_' + new Date().toISOString().slice(0, 10) + '.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                message.success('卡片已保存');
+            } catch (e) {
+                console.error('Card generation failed:', e);
+                message.error('生成卡片失败');
+            }
+            setGenerating(false);
+        }
+
         return (
             <div className="sub-page">
                 <div className="sub-page-header">
                     <button className="sub-page-back" onClick={onBack}><ArrowLeftOutlined /></button>
                     <span className="sub-page-title">我的足迹</span>
+                    {provinces.length > 0 && (
+                        <button style={{ marginLeft: 'auto', border: 'none', background: 'none', fontSize: 13, color: 'var(--primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', padding: '6px 12px', borderRadius: 8 }}
+                            onClick={handleGenerateCard} disabled={generating}>
+                            {generating ? <LoadingOutlined /> : <PictureOutlined />} 生成卡片
+                        </button>
+                    )}
                 </div>
                 <div className="sub-page-content" style={{ padding: 0, maxWidth: 'none' }}>
                     {loading ? (
@@ -2861,7 +2949,7 @@
         if (subPage === 'account') return <AccountSettingsPage user={user} onBack={() => setSubPage(null)} />;
         if (subPage === 'help') return <HelpPage onBack={() => setSubPage(null)} />;
         if (subPage === 'citySearch') return <CitySearchPage initialCity={citySearchQuery} onBack={() => { setSubPage(null); setCitySearchQuery(''); }} />;
-        if (subPage === 'footprints') return <FootprintsPage onBack={() => setSubPage(null)} />;
+        if (subPage === 'footprints') return <FootprintsPage user={user} onBack={() => setSubPage(null)} />;
 
         function handleHeaderSearchKey(e) {
             if (e.key === 'Enter' && headerSearch.trim()) {
