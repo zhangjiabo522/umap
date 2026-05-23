@@ -9,6 +9,16 @@ function jsonResponse($data, $code = 200) {
 }
 
 function verifyRecaptcha($token) {
+    // Check if this is an arithmetic captcha token
+    if (strpos($token, 'arithmetic_verified_') === 0) {
+        $answer = intval(str_replace('arithmetic_verified_', '', $token));
+        if ($answer > 0) {
+            return ['success' => true];
+        }
+        return ['success' => false, 'error' => 'Arithmetic verification failed'];
+    }
+
+    // Original reCAPTCHA verification
     $urls = [
         'https://recaptcha.net/recaptcha/api/siteverify',
         'https://www.recaptcha.net/recaptcha/api/siteverify',

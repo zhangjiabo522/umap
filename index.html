@@ -94,6 +94,20 @@
         .ant-btn-primary.ant-btn-loading { opacity: 0.85; transform: none; }
         .g-recaptcha-container { display: flex; justify-content: center; min-height: 78px; }
 
+        /* Arithmetic Captcha */
+        .arithmetic-captcha { background: #f8f9fb; border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 14px; min-height: 78px; display: flex; align-items: center; justify-content: center; }
+        .arithmetic-row { display: flex; align-items: center; gap: 10px; width: 100%; }
+        .arithmetic-problem { font-family: var(--font-heading); font-size: 20px; font-weight: 700; color: var(--text-primary); white-space: nowrap; min-width: 100px; text-align: center; background: linear-gradient(135deg, rgba(21,101,239,0.08), rgba(13,148,136,0.08)); padding: 8px 14px; border-radius: 8px; }
+        .arithmetic-input { flex: 1; min-width: 0; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 16px; font-weight: 600; text-align: center; font-family: var(--font-body); color: var(--text-primary); background: #fff; outline: none; transition: border-color 150ms; }
+        .arithmetic-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(21,101,239,0.1); }
+        .arithmetic-btn { padding: 10px 16px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font-body); transition: all 150ms; white-space: nowrap; }
+        .arithmetic-btn:hover { background: var(--primary-dark); }
+        .arithmetic-btn:active { transform: scale(0.97); }
+        .arithmetic-refresh { width: 36px; height: 36px; border-radius: 8px; border: 1.5px solid var(--border); background: #fff; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 150ms; flex-shrink: 0; }
+        .arithmetic-refresh:hover { border-color: var(--primary); color: var(--primary); background: rgba(21,101,239,0.04); }
+        .arithmetic-refresh:active { transform: scale(0.95); }
+        .arithmetic-verified { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #52c41a; }
+
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
 
         /* ===== App Shell (logged in) ===== */
@@ -482,7 +496,7 @@
         LoadingOutlined, StarFilled, DeleteOutlined, HomeOutlined, RobotOutlined,
         RightOutlined, SettingOutlined, BellOutlined, QuestionCircleOutlined, AimOutlined,
         SearchOutlined, CompassOutlined, EllipsisOutlined, LikeOutlined, DislikeOutlined,
-        SendOutlined, PictureOutlined, UnorderedListOutlined
+        SendOutlined, PictureOutlined, UnorderedListOutlined, ReloadOutlined
     } = icons;
 
     const RECAPTCHA_SITE_KEY = '6LeBLvcsAAAAAANaL5q8z4tVmVu1QPbrzarCBeoi';
@@ -493,19 +507,119 @@
         full: { label: '完整测试', tags: 100, min: 30, desc: '完整细致的偏好 (100个标签, 至少选30个)' },
     };
 
+    // ==================== Arithmetic Captcha ====================
+    function ArithmeticCaptcha({ onVerify, resetKey }) {
+        const [problem, setProblem] = useState('');
+        const [answer, setAnswer] = useState('');
+        const [correctAnswer, setCorrectAnswer] = useState(0);
+        const [verified, setVerified] = useState(false);
+
+        const generateProblem = useCallback(() => {
+            const ops = ['+', '-', '×'];
+            const op = ops[Math.floor(Math.random() * ops.length)];
+            let a, b, result;
+            switch (op) {
+                case '+': a = Math.floor(Math.random() * 50) + 1; b = Math.floor(Math.random() * 50) + 1; result = a + b; break;
+                case '-': a = Math.floor(Math.random() * 50) + 20; b = Math.floor(Math.random() * a) + 1; result = a - b; break;
+                case '×': a = Math.floor(Math.random() * 10) + 1; b = Math.floor(Math.random() * 10) + 1; result = a * b; break;
+            }
+            setProblem(`${a} ${op} ${b} = ?`);
+            setCorrectAnswer(result);
+            setAnswer('');
+            setVerified(false);
+        }, []);
+
+        useEffect(() => { generateProblem(); }, [generateProblem]);
+        useEffect(() => { if (resetKey > 0) generateProblem(); }, [resetKey, generateProblem]);
+
+        const handleVerify = () => {
+            if (parseInt(answer) === correctAnswer) {
+                setVerified(true);
+                onVerify('arithmetic_verified_' + correctAnswer);
+                message.success('验证成功');
+            } else {
+                message.error('计算错误，请重试');
+                generateProblem();
+            }
+        };
+
+        return (
+            <div className="arithmetic-captcha">
+                {verified ? (
+                    <div className="arithmetic-verified"><CheckCircleFilled style={{ color: '#52c41a', fontSize: 18 }} /> 验证成功</div>
+                ) : (
+                    <div className="arithmetic-row">
+                        <span className="arithmetic-problem">{problem}</span>
+                        <input className="arithmetic-input" value={answer} onChange={e => setAnswer(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleVerify()} placeholder="输入答案" maxLength={4} />
+                        <button className="arithmetic-btn" onClick={handleVerify}>确认</button>
+                        <button className="arithmetic-refresh" onClick={generateProblem} title="换一题"><ReloadOutlined /></button>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
     // ==================== Recaptcha Widget ====================
     function RecaptchaWidget({ onVerify, resetKey }) {
         const containerRef = useRef(null);
         const widgetIdRef = useRef(null);
+        const [useArithmetic, setUseArithmetic] = useState(false);
+
         useEffect(() => {
+            let timeoutId;
+            let intervalId;
+            let rendered = false;
+
             const tryRender = () => {
                 if (!window.grecaptcha?.render || !containerRef.current) return false;
-                try { widgetIdRef.current = window.grecaptcha.render(containerRef.current, { sitekey: RECAPTCHA_SITE_KEY, callback: onVerify, theme: 'light' }); return true; }
-                catch(e) { return false; }
+                try {
+                    widgetIdRef.current = window.grecaptcha.render(containerRef.current, {
+                        sitekey: RECAPTCHA_SITE_KEY,
+                        callback: (token) => { clearTimeout(timeoutId); onVerify(token); },
+                        theme: 'light'
+                    });
+                    rendered = true;
+                    return true;
+                } catch(e) { return false; }
             };
-            if (!tryRender()) { const t = setInterval(() => { if (tryRender()) clearInterval(t); }, 200); return () => clearInterval(t); }
+
+            // Try to render immediately
+            if (!tryRender()) {
+                // Keep trying every 200ms
+                intervalId = setInterval(() => {
+                    if (tryRender()) clearInterval(intervalId);
+                }, 200);
+            }
+
+            // 5 second timeout - switch to arithmetic
+            timeoutId = setTimeout(() => {
+                if (!rendered) {
+                    clearInterval(intervalId);
+                    setUseArithmetic(true);
+                }
+            }, 5000);
+
+            return () => {
+                clearTimeout(timeoutId);
+                clearInterval(intervalId);
+            };
         }, []);
-        useEffect(() => { if (resetKey > 0 && widgetIdRef.current !== null && window.grecaptcha) { try { window.grecaptcha.reset(widgetIdRef.current); } catch(e) {} } }, [resetKey]);
+
+        useEffect(() => {
+            if (resetKey > 0) {
+                if (useArithmetic) {
+                    setUseArithmetic(false);
+                    setTimeout(() => setUseArithmetic(true), 50);
+                } else if (widgetIdRef.current !== null && window.grecaptcha) {
+                    try { window.grecaptcha.reset(widgetIdRef.current); } catch(e) {}
+                }
+            }
+        }, [resetKey, useArithmetic]);
+
+        if (useArithmetic) {
+            return <ArithmeticCaptcha onVerify={onVerify} resetKey={resetKey} />;
+        }
+
         return <div ref={containerRef} className="g-recaptcha-container"></div>;
     }
 
