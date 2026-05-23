@@ -1639,6 +1639,7 @@
         const [sessions, setSessions] = useState([]);
         const chatEndRef = useRef(null);
         const textareaRef = useRef(null);
+        const aiContentRef = useRef(''); // tracks current AI message content for append
 
         useEffect(() => { loadFavorites(); }, []);
         useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
@@ -2065,8 +2066,6 @@
         function removeFile(idx) {
             setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
         }
-
-        const aiContentRef = useRef(''); // tracks current AI message content for append
 
         async function sendMessage(continueParams) {
             const isContinue = !!continueParams;
