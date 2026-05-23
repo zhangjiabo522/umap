@@ -58,10 +58,18 @@ try {
 
         $isNewProvince = false;
         if ($province !== '') {
+            // Check if this is a new province (never seen before)
             $stmt = $db->prepare("SELECT DISTINCT province FROM user_footprints WHERE user_id = ? AND province != ''");
             $stmt->execute([$userId]);
             $existing = array_map('normalizeProvince', array_column($stmt->fetchAll(), 'province'));
             $isNewProvince = !in_array($province, $existing);
+
+            // Avoid duplicates: skip if already recorded this province today
+            $stmt = $db->prepare("SELECT COUNT(*) FROM user_footprints WHERE user_id = ? AND province = ? AND DATE(created_at) = CURDATE()");
+            $stmt->execute([$userId, $province]);
+            if ($stmt->fetchColumn() > 0) {
+                jsonResponse(['success' => true, 'is_new_province' => false, 'province' => $province, 'message' => '今日已记录']);
+            }
         }
 
         $stmt = $db->prepare("INSERT INTO user_footprints (user_id, ip, city, province, country, lng, lat) VALUES (?, ?, ?, ?, ?, ?, ?)");
