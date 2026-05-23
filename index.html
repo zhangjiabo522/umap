@@ -1145,20 +1145,10 @@
                 }
             }
 
-            // 全局超时保底 — 10秒后如果还没结果就显示失败
-            const safetyTimer = setTimeout(() => {
-                if (!applied) {
-                    setLocStatus('failed');
-                    setLocLabel('定位超时');
-                    setRefreshing(false);
-                }
-            }, 10000);
-
             // 1) IP定位 — 保底，必须执行
             try {
                 const citySearch = new AMap.CitySearch();
                 citySearch.getLocalCity((status, result) => {
-                    clearTimeout(safetyTimer);
                     if (applied) { ipDone = true; return; }
                     if (status === 'complete' && result.bounds) {
                         map.setBounds(result.bounds);
@@ -1177,47 +1167,24 @@
                 checkDone();
             }
 
-            // 2) GPS定位 — 立即请求系统权限
+            // 2) GPS定位 — 只做一次，高精度优先
             if (!navigator.geolocation) {
                 gpsDone = true;
                 checkDone();
                 return;
             }
 
-            // 先尝试低精度（快速返回，兼容性好）
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     gpsDone = true;
                     const { longitude: lng, latitude: lat, accuracy } = pos.coords;
                     applyGpsCoords(lng, lat, accuracy);
-                    // 低精度成功后再尝试高精度升级
-                    if (accuracy > 100) {
-                        navigator.geolocation.getCurrentPosition(
-                            (pos2) => {
-                                if (pos2.coords.accuracy < accuracy) {
-                                    applyGpsCoords(pos2.coords.longitude, pos2.coords.latitude, pos2.coords.accuracy);
-                                }
-                            },
-                            () => {},
-                            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                        );
-                    }
                 },
                 () => {
-                    // 低精度失败，尝试高精度
-                    navigator.geolocation.getCurrentPosition(
-                        (pos2) => {
-                            gpsDone = true;
-                            applyGpsCoords(pos2.coords.longitude, pos2.coords.latitude, pos2.coords.accuracy);
-                        },
-                        () => {
-                            gpsDone = true;
-                            checkDone();
-                        },
-                        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-                    );
+                    gpsDone = true;
+                    checkDone();
                 },
-                { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+                { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
             );
         }
 
