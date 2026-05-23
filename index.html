@@ -1504,7 +1504,9 @@
                 const res = await fetch(`/api/ai_chat_history.php?action=messages&session_id=${sid}`);
                 const data = await res.json();
                 if (data.success) {
-                    setMessages(data.messages.map(m => ({
+                    setMessages(data.messages
+                        .filter(m => !(m.role === 'assistant' && !m.content))
+                        .map(m => ({
                         role: m.role === 'assistant' ? 'ai' : 'user',
                         content: m.content,
                         think: m.think || '',

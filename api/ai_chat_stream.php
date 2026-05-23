@@ -10,6 +10,7 @@ define('MIMO_MODEL', $_ENV['MIMO_MODEL'] ?? 'mimo-v2.5-pro');
 define('MIMO_VISION_MODEL', $_ENV['MIMO_VISION_MODEL'] ?? 'mimo-v2.5');
 
 set_time_limit(180);
+ignore_user_abort(true);
 if (ob_get_level()) ob_end_clean();
 
 header('Content-Type: text/event-stream');
@@ -98,9 +99,50 @@ try {
     ];
 
     sendEvt('status', ['message' => 'AI 正在分析并生成回答...']);
+
+    // Pre-insert empty assistant message to get ID for incremental saves
+    $searchResultsJson = !empty($searchResultsData) ? json_encode($searchResultsData, JSON_UNESCAPED_UNICODE) : null;
+    $stmt = $db->prepare("INSERT INTO ai_chat_messages (session_id, role, content, think, search_results) VALUES (?, 'assistant', '', NULL, ?)");
+    $stmt->execute([$sessionId, $searchResultsJson]);
+    $assistantMsgId = intval($db->lastInsertId());
+
+    // Incremental save callback
+    $saveDb = $db;
+    $saveMsgId = $assistantMsgId;
+    $latestThink = '';
+    $latestContent = '';
+    $finalSaved = false;
+
+    $onProgress = function (string $think, string $content) use ($saveDb, $saveMsgId, &$latestThink, &$latestContent) {
+        $latestThink = $think;
+        $latestContent = $content;
+        try {
+            $stmt = $saveDb->prepare("UPDATE ai_chat_messages SET content = ?, think = ? WHERE id = ?");
+            $stmt->execute([$content, $think ?: null, $saveMsgId]);
+        } catch (Throwable $e) {
+            error_log('Incremental save error: ' . $e->getMessage());
+        }
+    };
+
+    // Shutdown function: guarantee save even on unexpected termination
+    register_shutdown_function(function () use ($saveDb, $saveMsgId, &$latestThink, &$latestContent, &$finalSaved) {
+        if ($finalSaved) return;
+        try {
+            if ($latestContent !== '') {
+                $stmt = $saveDb->prepare("UPDATE ai_chat_messages SET content = ?, think = ? WHERE id = ?");
+                $stmt->execute([$latestContent, $latestThink ?: null, $saveMsgId]);
+            } else {
+                // No content at all, remove the empty message
+                $saveDb->prepare("DELETE FROM ai_chat_messages WHERE id = ?")->execute([$saveMsgId]);
+            }
+        } catch (Throwable $e) {
+            error_log('Shutdown save error: ' . $e->getMessage());
+        }
+    });
+
     $fullThink = '';
     $fullContent = '';
-    $streamResult = callMimo($payload, true, $fullThink, $fullContent);
+    $streamResult = callMimo($payload, true, $fullThink, $fullContent, $onProgress);
     if (!$streamResult['ok'] || !$streamResult['emitted']) {
         $payload['stream'] = false;
         $result = callMimoNonStream($payload);
@@ -108,16 +150,18 @@ try {
         $fullContent = $result['content'];
         if (!empty($fullThink)) sendEvt('think', ['text' => $fullThink]);
         if ($fullContent === '') {
+            // Remove the empty assistant message on failure
+            $db->prepare("DELETE FROM ai_chat_messages WHERE id = ?")->execute([$assistantMsgId]);
             sendEvt('error', ['message' => 'AI 暂时没有返回内容，请稍后重试']);
             exit;
         }
         streamText($fullContent);
     }
 
-    // Save AI response
-    $searchResultsJson = !empty($searchResultsData) ? json_encode($searchResultsData, JSON_UNESCAPED_UNICODE) : null;
-    $stmt = $db->prepare("INSERT INTO ai_chat_messages (session_id, role, content, think, search_results) VALUES (?, 'assistant', ?, ?, ?)");
-    $stmt->execute([$sessionId, $fullContent, $fullThink ?: null, $searchResultsJson]);
+    // Final save with complete content
+    $stmt = $db->prepare("UPDATE ai_chat_messages SET content = ?, think = ? WHERE id = ?");
+    $stmt->execute([$fullContent, $fullThink ?: null, $assistantMsgId]);
+    $finalSaved = true;
 
     // Extract and update userlike
     updateUserLikeFromResponse($db, $userId, $fullContent);
@@ -444,13 +488,14 @@ function updateUserLikeFromResponse(PDO $db, int $userId, string $content): void
     }
 }
 
-function callMimo(array $payload, bool $stream, string &$outThink = null, string &$outContent = null): array {
+function callMimo(array $payload, bool $stream, string &$outThink = null, string &$outContent = null, callable $onProgress = null): array {
     $buffer = '';
     $raw = '';
     $emitted = false;
     $done = false;
     $thinkBuf = '';
     $contentBuf = '';
+    $lastSaveTime = time();
 
     $ch = curl_init(MIMO_BASE_URL . '/chat/completions');
     curl_setopt_array($ch, [
@@ -459,7 +504,7 @@ function callMimo(array $payload, bool $stream, string &$outThink = null, string
         CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'api-key: ' . MIMO_API_KEY],
         CURLOPT_RETURNTRANSFER => false,
         CURLOPT_TIMEOUT => 150,
-        CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use (&$buffer, &$raw, &$emitted, &$done, &$thinkBuf, &$contentBuf) {
+        CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use (&$buffer, &$raw, &$emitted, &$done, &$thinkBuf, &$contentBuf, &$lastSaveTime, $onProgress) {
             $raw .= $chunk;
             $buffer .= $chunk;
             while (($pos = strpos($buffer, "\n\n")) !== false) {
@@ -485,6 +530,11 @@ function callMimo(array $payload, bool $stream, string &$outThink = null, string
                         sendEvt('delta', ['text' => $text]);
                     }
                 }
+            }
+            // Incremental save every 3 seconds
+            if ($onProgress && time() - $lastSaveTime >= 3 && ($thinkBuf !== '' || $contentBuf !== '')) {
+                $lastSaveTime = time();
+                $onProgress($thinkBuf, $contentBuf);
             }
             return strlen($chunk);
         },

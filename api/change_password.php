@@ -31,16 +31,16 @@ if (strlen($newPassword) < 6) {
 
 try {
     $db = getDB();
-    $stmt = $db->prepare("SELECT password FROM users WHERE id = ?");
+    $stmt = $db->prepare("SELECT password_hash FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     $user = $stmt->fetch();
 
-    if (!$user || !password_verify($currentPassword, $user['password'])) {
+    if (!$user || !password_verify($currentPassword, $user['password_hash'])) {
         jsonResponse(['success' => false, 'message' => '当前密码错误']);
     }
 
     $hash = password_hash($newPassword, PASSWORD_DEFAULT);
-    $stmt = $db->prepare("UPDATE users SET password = ? WHERE id = ?");
+    $stmt = $db->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
     $stmt->execute([$hash, $_SESSION['user_id']]);
 
     jsonResponse(['success' => true, 'message' => '密码修改成功']);
