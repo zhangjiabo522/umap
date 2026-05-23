@@ -1087,7 +1087,7 @@
 
             var done = false;
 
-            function place(lng, lat, label) {
+            function place(lng, lat, type) {
                 if (done) return;
                 done = true;
                 map.setCenter([lng, lat]);
@@ -1102,31 +1102,40 @@
                 });
                 map.add(marker);
                 markerRef.current = marker;
-                setLocStatus(label === 'gps' ? 'gps' : 'ip');
-                setLocLabel(label === 'gps' ? 'GPS 定位' : '网络定位');
+                setLocStatus(type);
+                setLocLabel(type === 'gps' ? 'GPS 定位' : '网络定位');
                 setRefreshing(false);
             }
 
-            // 1) IP定位 — 立即启动，最快最可靠
-            new AMap.CitySearch().getLocalCity(function(ipStatus, ipResult) {
-                if (done) return;
-                if (ipStatus === 'complete' && ipResult.bounds) {
-                    var c = ipResult.bounds.getCenter();
-                    place(c.lng, c.lat, 'ip');
-                }
-            });
+            // 8秒绝对兜底 — 显示中国中心
+            setTimeout(function() {
+                if (!done) { place(116.397428, 39.90923, 'ip'); }
+            }, 8000);
 
-            // 2) GPS定位 — 同时尝试，成功后替换IP
+            // IP定位 — 立即启动
+            try {
+                new AMap.CitySearch().getLocalCity(function(status, result) {
+                    if (done) return;
+                    if (status === 'complete' && result.bounds) {
+                        var c = result.bounds.getCenter();
+                        place(c.lng, c.lat, 'ip');
+                    }
+                });
+            } catch(e) {}
+
+            // GPS定位 — 并行尝试
             if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(function(pos) {
-                    var lng = pos.coords.longitude;
-                    var lat = pos.coords.latitude;
-                    AMap.convertFrom([lng, lat], 'gps', function(s, r) {
-                        if (s === 'complete' && r.locations && r.locations[0]) {
-                            place(r.locations[0].lng, r.locations[0].lat, 'gps');
-                        }
-                    });
-                }, function() {}, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+                try {
+                    navigator.geolocation.getCurrentPosition(function(pos) {
+                        if (done) return;
+                        AMap.convertFrom([pos.coords.longitude, pos.coords.latitude], 'gps', function(s, r) {
+                            if (done) return;
+                            if (s === 'complete' && r.locations && r.locations[0]) {
+                                place(r.locations[0].lng, r.locations[0].lat, 'gps');
+                            }
+                        });
+                    }, function() {}, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
+                } catch(e) {}
             }
         }
 
