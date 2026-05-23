@@ -37,8 +37,9 @@ try {
 
 $tab = $_GET['tab'] ?? 'users';
 $userId = intval($_GET['uid'] ?? 0);
+$sessionId = intval($_GET['sid'] ?? 0);
 
-showAdmin($db, $tab, $userId);
+showAdmin($db, $tab, $userId, $sessionId);
 
 // ==================== Login Page ====================
 function showLogin(?string $error): void {
@@ -77,7 +78,7 @@ body{min-height:100vh;display:flex;align-items:center;justify-content:center;bac
 }
 
 // ==================== Admin Dashboard ====================
-function showAdmin(PDO $db, string $tab, int $userId): void {
+function showAdmin(PDO $db, string $tab, int $userId, int $sessionId): void {
     $stats = getStats($db);
 ?>
 <!DOCTYPE html>
@@ -147,7 +148,9 @@ tr:hover{background:#f8fafc}
     <a href="?tab=system" class="<?= $tab === 'system' ? 'active' : '' ?>">系统信息</a>
 </div>
 <div class="container">
-<?php if ($userId > 0 && $tab === 'profile'): ?>
+<?php if ($sessionId > 0 && $tab === 'chat'): ?>
+    <?php showChatMessages($db, $sessionId); ?>
+<?php elseif ($userId > 0 && $tab === 'profile'): ?>
     <?php showUserProfile($db, $userId); ?>
 <?php else: ?>
     <?php
@@ -335,13 +338,14 @@ function showUserProfile(PDO $db, int $uid): void {
         <div class="empty">暂无对话</div>
     <?php else: ?>
     <table>
-        <tr><th>ID</th><th>标题</th><th>消息数</th><th>最后活跃</th></tr>
+        <tr><th>ID</th><th>标题</th><th>消息数</th><th>最后活跃</th><th>操作</th></tr>
         <?php foreach ($sessList as $s): ?>
         <tr>
             <td><?= $s['id'] ?></td>
             <td><?= htmlspecialchars($s['title']) ?></td>
             <td><?= $s['msg_count'] ?></td>
             <td><?= date('m-d H:i', strtotime($s['updated_at'])) ?></td>
+            <td><a class="btn btn-primary btn-sm" href="?tab=chat&sid=<?= $s['id'] ?>">查看对话</a></td>
         </tr>
         <?php endforeach; ?>
     </table>
@@ -350,10 +354,114 @@ function showUserProfile(PDO $db, int $uid): void {
 <?php
 }
 
+// ==================== Chat Messages ====================
+function showChatMessages(PDO $db, int $sid): void {
+    $stmt = $db->prepare("SELECT s.*, u.username, u.id AS user_id FROM ai_chat_sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ?");
+    $stmt->execute([$sid]);
+    $session = $stmt->fetch();
+    if (!$session) { echo '<div class="empty">对话不存在</div>'; return; }
+
+    $msgs = $db->prepare("SELECT * FROM ai_chat_messages WHERE session_id = ? ORDER BY created_at ASC");
+    $msgs->execute([$sid]);
+    $msgList = $msgs->fetchAll();
+?>
+<style>
+.chat-container{max-width:800px;margin:0 auto}
+.msg-item{margin-bottom:16px;display:flex;flex-direction:column}
+.msg-item.user{align-items:flex-end}
+.msg-item.assistant{align-items:flex-start}
+.msg-bubble{max-width:85%;padding:12px 16px;border-radius:14px;font-size:14px;line-height:1.6;word-break:break-word;white-space:pre-wrap}
+.msg-item.user .msg-bubble{background:#1565EF;color:#fff;border-bottom-right-radius:4px}
+.msg-item.assistant .msg-bubble{background:#f0f4f8;color:#1a1a2e;border-bottom-left-radius:4px}
+.msg-meta{font-size:11px;color:#8896ab;margin-top:4px;padding:0 4px}
+.msg-role{font-weight:600;font-size:12px;margin-bottom:2px;padding:0 4px}
+.msg-role.user-role{color:#1565EF}
+.msg-role.ai-role{color:#059669}
+.msg-think{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px 14px;margin-top:8px;font-size:13px;color:#92400e;line-height:1.5;max-height:200px;overflow-y:auto}
+.msg-think summary{cursor:pointer;font-weight:600;font-size:12px;color:#D97706}
+.msg-attachment{display:inline-flex;align-items:center;gap:4px;background:#eff6ff;color:#1565EF;padding:4px 10px;border-radius:8px;font-size:12px;margin-top:6px}
+.msg-search{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 14px;margin-top:8px;font-size:12px;color:#166534;line-height:1.5}
+.msg-search summary{cursor:pointer;font-weight:600;font-size:12px;color:#059669}
+.msg-favorite{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:8px 12px;margin-top:8px;font-size:12px;color:#9a3412}
+</style>
+
+<a class="back-link" href="?tab=chats">&larr; 返回对话列表</a>
+
+<div class="card">
+    <div class="card-header">
+        对话详情
+        <span class="badge badge-blue">ID: <?= $sid ?></span>
+    </div>
+    <div class="profile-section">
+        <p><strong>用户:</strong> <a href="?tab=profile&uid=<?= $session['user_id'] ?>" style="color:#1565EF"><?= htmlspecialchars($session['username']) ?></a></p>
+        <p><strong>标题:</strong> <?= htmlspecialchars($session['title']) ?></p>
+        <p><strong>消息数:</strong> <?= count($msgList) ?></p>
+        <p><strong>创建时间:</strong> <?= $session['created_at'] ?></p>
+        <p><strong>最后活跃:</strong> <?= $session['updated_at'] ?></p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">对话内容 (<?= count($msgList) ?> 条消息)</div>
+    <div class="profile-section chat-container">
+        <?php if (empty($msgList)): ?>
+            <div class="empty">暂无消息</div>
+        <?php else: ?>
+            <?php foreach ($msgList as $m): ?>
+            <div class="msg-item <?= $m['role'] ?>">
+                <div class="msg-role <?= $m['role'] === 'user' ? 'user-role' : 'ai-role' ?>"><?= $m['role'] === 'user' ? '用户' : 'AI助手' ?></div>
+                <div class="msg-bubble"><?= nl2br(htmlspecialchars($m['content'])) ?></div>
+
+                <?php if (!empty($m['think'])): ?>
+                <details class="msg-think">
+                    <summary>AI 思考过程</summary>
+                    <?= nl2br(htmlspecialchars($m['think'])) ?>
+                </details>
+                <?php endif; ?>
+
+                <?php
+                $attachments = json_decode($m['attachments'], true);
+                if (!empty($attachments)):
+                    foreach ($attachments as $a):
+                ?>
+                <div class="msg-attachment"><?= $a['type'] === 'image' ? '图片' : ($a['type'] === 'audio' ? '音频' : '视频') ?>: <?= htmlspecialchars($a['name']) ?></div>
+                <?php
+                    endforeach;
+                endif;
+                ?>
+
+                <?php
+                $fav = json_decode($m['favorite'], true);
+                if (!empty($fav)):
+                ?>
+                <div class="msg-favorite">收藏地点: <?= htmlspecialchars($fav['name'] ?? '') ?> (<?= htmlspecialchars($fav['city'] ?? '') ?>)</div>
+                <?php endif; ?>
+
+                <?php
+                $searchResults = json_decode($m['search_results'], true);
+                if (!empty($searchResults)):
+                ?>
+                <details class="msg-search">
+                    <summary>搜索结果 (<?= count($searchResults) ?> 条)</summary>
+                    <?php foreach ($searchResults as $r): ?>
+                    <div style="margin-bottom:6px"><strong><?= htmlspecialchars($r['title'] ?? '') ?></strong><br><small><?= htmlspecialchars($r['snippet'] ?? '') ?></small></div>
+                    <?php endforeach; ?>
+                </details>
+                <?php endif; ?>
+
+                <div class="msg-meta"><?= date('Y-m-d H:i:s', strtotime($m['created_at'])) ?></div>
+            </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+</div>
+<?php
+}
+
 // ==================== AI Chats ====================
 function showChats(PDO $db): void {
     $sessions = $db->query("
-        SELECT s.id, s.title, s.created_at, s.updated_at, u.username,
+        SELECT s.id, s.title, s.created_at, s.updated_at, s.user_id, u.username,
             (SELECT COUNT(*) FROM ai_chat_messages WHERE session_id = s.id) AS msg_count
         FROM ai_chat_sessions s
         JOIN users u ON u.id = s.user_id
@@ -363,15 +471,16 @@ function showChats(PDO $db): void {
 <div class="card">
     <div class="card-header">AI对话列表 (<?= count($sessions) ?>)</div>
     <table>
-        <tr><th>ID</th><th>用户</th><th>标题</th><th>消息</th><th>创建</th><th>最后活跃</th></tr>
+        <tr><th>ID</th><th>用户</th><th>标题</th><th>消息</th><th>创建</th><th>最后活跃</th><th>操作</th></tr>
         <?php foreach ($sessions as $s): ?>
         <tr>
             <td><?= $s['id'] ?></td>
-            <td><a href="?tab=profile&uid=<?= $s['id'] ?>" style="color:#1565EF;text-decoration:none"><?= htmlspecialchars($s['username']) ?></a></td>
+            <td><a href="?tab=profile&uid=<?= $s['user_id'] ?>" style="color:#1565EF;text-decoration:none"><?= htmlspecialchars($s['username']) ?></a></td>
             <td><?= htmlspecialchars($s['title']) ?></td>
             <td><?= $s['msg_count'] ?></td>
             <td><?= date('m-d H:i', strtotime($s['created_at'])) ?></td>
             <td><?= date('m-d H:i', strtotime($s['updated_at'])) ?></td>
+            <td><a class="btn btn-primary btn-sm" href="?tab=chat&sid=<?= $s['id'] ?>">查看对话</a></td>
         </tr>
         <?php endforeach; ?>
     </table>
