@@ -28,6 +28,7 @@ try {
         'search_places' => searchPlaces($params),
         'get_nearby' => getNearby($params),
         'get_weather' => getWeather($params),
+        'web_search' => webSearch($params),
         default => throw new RuntimeException("未知工具: {$tool}"),
     };
     jsonResponse(['success' => true, 'tool' => $tool, 'result' => $result]);
@@ -176,5 +177,44 @@ function getWeather(array $params): array {
             'dayPower' => $c['daypower'] ?? '',
             'nightPower' => $c['nightpower'] ?? '',
         ], $casts), 0, 4),
+    ];
+}
+
+function webSearch(array $params): array {
+    $query = trim($params['query'] ?? '');
+    if (!$query) throw new RuntimeException('缺少搜索关键词');
+
+    $url = 'http://127.0.0.1:8888/search?format=json&categories=general&language=zh-CN&q=' . urlencode($query);
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_HTTPHEADER => ['Accept: application/json'],
+    ]);
+    $resp = curl_exec($ch);
+    $err = curl_error($ch);
+    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($err || $status < 200 || $status >= 300) {
+        throw new RuntimeException('搜索请求失败: ' . ($err ?: "HTTP {$status}"));
+    }
+    $data = json_decode($resp, true);
+    if (!is_array($data)) throw new RuntimeException('搜索返回数据异常');
+
+    $results = [];
+    foreach ($data['results'] ?? [] as $r) {
+        $results[] = [
+            'title' => $r['title'] ?? '',
+            'url' => $r['url'] ?? '',
+            'content' => $r['content'] ?? '',
+            'engine' => implode(', ', $r['engines'] ?? []),
+        ];
+    }
+
+    return [
+        'query' => $query,
+        'count' => count($results),
+        'results' => $results,
     ];
 }

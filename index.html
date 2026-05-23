@@ -1826,7 +1826,7 @@
         }
 
         function ToolCallBanner({ tool, status }) {
-            const toolNames = { search_places: '搜索地点', get_nearby: '搜索周边', get_weather: '查询天气' };
+            const toolNames = { search_places: '搜索地点', get_nearby: '搜索周边', get_weather: '查询天气', web_search: '联网搜索' };
             const label = toolNames[tool] || tool;
             return (
                 <div className={`ai-toolcall-banner ${status}`}>
@@ -1865,6 +1865,30 @@
                                         }}><CompassOutlined /></button>
                                     )}
                                 </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            }
+            if (tool === 'web_search') {
+                const results = result.results || [];
+                return (
+                    <div className="ai-tool-result">
+                        <div className="ai-tool-result-header">
+                            <SearchOutlined /> 搜索"{result.query}" · {result.count} 条结果
+                        </div>
+                        <div className="ai-tool-result-places">
+                            {results.slice(0, 5).map((r, i) => (
+                                <a key={i} className="ai-tool-result-place" href={r.url} target="_blank" rel="noopener noreferrer" style={{textDecoration:'none',color:'inherit'}}>
+                                    <div className={`ai-tool-result-place-rank${i < 3 ? ' top3' : ''}`}>{i + 1}</div>
+                                    <div className="ai-tool-result-place-info">
+                                        <div className="ai-tool-result-place-name">{r.title}</div>
+                                        <div className="ai-tool-result-place-addr">{r.content}</div>
+                                        <div className="ai-tool-result-place-meta">
+                                            <span>🔗 {r.url}</span>
+                                        </div>
+                                    </div>
+                                </a>
                             ))}
                         </div>
                     </div>

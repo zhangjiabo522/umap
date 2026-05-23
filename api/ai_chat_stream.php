@@ -457,8 +457,13 @@ type可选值：餐饮、酒店、景点、购物、交通设施、生活服务
 {"type":"warning|info|success","title":"标题","content":"详细内容"}
 ```
 
+14. 当你需要搜索互联网上的实时信息时（如门票价格、营业时间、最新攻略、新闻等），使用以下代码块调用联网搜索工具：
+```tool_call
+{"tool":"web_search","params":{"query":"搜索关键词"}}
+```
+
 重要规则：
-- search_places/get_nearby/get_weather 会实际调用API返回实时数据，请在需要实时信息时优先使用
+- search_places/get_nearby/get_weather/web_search 会实际调用API返回实时数据，请在需要实时信息时优先使用
 - 每次回复最多调用2次工具，避免过多API请求
 - 工具调用代码块放在回答末尾
 - itinerary/comparison/travel_tip 是纯展示工具，由你直接生成内容
