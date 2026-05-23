@@ -1098,13 +1098,7 @@
             setRefreshing(true);
             if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
 
-            let applied = false;
-            let gpsDone = false;
-            let ipDone = false;
-
             function applyLngLat(lng, lat, type) {
-                if (applied && type !== 'gps') return;
-                applied = true;
                 map.setCenter([lng, lat]);
                 map.setZoom(17);
                 if (onLocationUpdate) onLocationUpdate({ lng, lat });
@@ -1122,70 +1116,33 @@
                 setRefreshing(false);
             }
 
-            function applyGpsCoords(lng, lat, accuracy) {
-                try {
-                    AMap.convertFrom([lng, lat], 'gps', (status, result) => {
-                        if (applied) return;
-                        if (status === 'complete' && result.locations?.[0]) {
-                            applyLngLat(result.locations[0][0], result.locations[0][1], accuracy <= 100 ? 'gps' : 'ip');
+            // 使用AMap.Geolocation — 融合GPS+IP定位，自动坐标转换
+            const geolocation = new AMap.Geolocation({
+                enableHighAccuracy: true,
+                timeout: 10000,
+                zoomToAccuracy: false,
+            });
+
+            geolocation.getCurrentPosition((status, result) => {
+                if (status === 'complete') {
+                    const { lng, lat, accuracy } = result.position;
+                    const type = accuracy <= 100 ? 'gps' : 'ip';
+                    applyLngLat(lng, lat, type);
+                } else {
+                    // Geolocation失败，用CitySearch保底
+                    new AMap.CitySearch().getLocalCity((s2, r2) => {
+                        if (s2 === 'complete' && r2.bounds) {
+                            map.setBounds(r2.bounds);
+                            const center = r2.bounds.getCenter();
+                            applyLngLat(center.lng, center.lat, 'ip');
                         } else {
-                            applyLngLat(lng, lat, 'ip');
+                            setLocStatus('failed');
+                            setLocLabel('定位失败');
+                            setRefreshing(false);
                         }
                     });
-                } catch {
-                    applyLngLat(lng, lat, 'ip');
                 }
-            }
-
-            function checkDone() {
-                if (gpsDone && ipDone && !applied) {
-                    setLocStatus('failed');
-                    setLocLabel('定位失败');
-                    setRefreshing(false);
-                }
-            }
-
-            // 1) IP定位 — 保底，必须执行
-            try {
-                const citySearch = new AMap.CitySearch();
-                citySearch.getLocalCity((status, result) => {
-                    if (applied) { ipDone = true; return; }
-                    if (status === 'complete' && result.bounds) {
-                        map.setBounds(result.bounds);
-                        applyLngLat(
-                            result.bounds.getCenter().lng,
-                            result.bounds.getCenter().lat,
-                            'ip'
-                        );
-                    } else {
-                        ipDone = true;
-                        checkDone();
-                    }
-                });
-            } catch {
-                ipDone = true;
-                checkDone();
-            }
-
-            // 2) GPS定位 — 只做一次，高精度优先
-            if (!navigator.geolocation) {
-                gpsDone = true;
-                checkDone();
-                return;
-            }
-
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    gpsDone = true;
-                    const { longitude: lng, latitude: lat, accuracy } = pos.coords;
-                    applyGpsCoords(lng, lat, accuracy);
-                },
-                () => {
-                    gpsDone = true;
-                    checkDone();
-                },
-                { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-            );
+            });
         }
 
         useEffect(() => {
