@@ -1098,10 +1098,16 @@
             setRefreshing(true);
             if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
 
+            let applied = false;
+            let gpsDone = false;
+
             function applyLngLat(lng, lat, type) {
+                if (applied && type !== 'gps') return;
+                applied = true;
                 map.setCenter([lng, lat]);
                 map.setZoom(17);
                 if (onLocationUpdate) onLocationUpdate({ lng, lat });
+                if (markerRef.current) { map.remove(markerRef.current); markerRef.current = null; }
                 const marker = new AMap.Marker({
                     position: [lng, lat],
                     content: '<div style="width:18px;height:18px;border-radius:50%;background:#1565EF;border:3px solid #fff;box-shadow:0 0 0 5px rgba(21,101,239,0.22),0 2px 8px rgba(0,0,0,0.2)"></div>',
@@ -1111,68 +1117,56 @@
                 map.add(marker);
                 markerRef.current = marker;
                 setLocStatus(type);
-                setLocLabel(type === 'gps' ? 'GPS' : '网络定位');
+                setLocLabel(type === 'gps' ? 'GPS 定位' : '网络定位');
                 setRefreshing(false);
             }
 
-            function fallbackCity() {
-                new AMap.CitySearch().getLocalCity((s2, r2) => {
-                    if (s2 === 'complete' && r2.bounds) {
-                        map.setBounds(r2.bounds);
-                        setLocStatus('ip');
-                        setLocLabel(r2.city || 'IP 定位');
+            function applyGpsCoords(lng, lat, accuracy) {
+                AMap.convertFrom([lng, lat], 'gps', (status, result) => {
+                    if (status === 'complete' && result.locations?.[0]) {
+                        applyLngLat(result.locations[0][0], result.locations[0][1], accuracy <= 100 ? 'gps' : 'ip');
                     } else {
-                        setLocStatus('failed');
-                        setLocLabel('定位失败');
+                        applyLngLat(lng, lat, 'ip');
                     }
-                    setRefreshing(false);
                 });
             }
 
-            // Use browser native Geolocation API to trigger permission prompt
-            if (!navigator.geolocation) {
-                // No native geolocation, fallback to AMap IP
-                fallbackCity();
-                return;
-            }
+            // 1) IP定位 — 快速并行，不阻塞页面
+            new AMap.CitySearch().getLocalCity((s2, r2) => {
+                if (gpsDone) return; // GPS已到位，跳过
+                if (s2 === 'complete' && r2.bounds) {
+                    map.setBounds(r2.bounds);
+                    if (!applied) {
+                        setLocStatus('ip');
+                        setLocLabel(r2.city || 'IP 定位');
+                        setRefreshing(false);
+                    }
+                } else if (!applied) {
+                    setLocStatus('failed');
+                    setLocLabel('定位失败');
+                    setRefreshing(false);
+                }
+            });
 
-            let applied = false;
+            // 2) GPS定位 — 立即请求系统权限，优先高精度
+            if (!navigator.geolocation) return;
 
-            // Quick attempt: low accuracy, accept cached (triggers permission dialog)
+            // 立即触发权限请求，高精度优先
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    if (applied) return;
-                    applied = true;
+                    gpsDone = true;
                     const { longitude: lng, latitude: lat, accuracy } = pos.coords;
-                    // WGS-84 → GCJ-02 conversion via AMap
-                    AMap.convertFrom([lng, lat], 'gps', (status, result) => {
-                        if (status === 'complete' && result.locations?.[0]) {
-                            const [gLng, gLat] = result.locations[0];
-                            applyLngLat(gLng, gLat, accuracy <= 100 ? 'gps' : 'ip');
-                        } else {
-                            applyLngLat(lng, lat, 'ip');
-                        }
-                    });
-                    // Background precise GPS upgrade
-                    navigator.geolocation.getCurrentPosition(
-                        (pos2) => {
-                            if (pos2.coords.accuracy < (accuracy || Infinity)) {
-                                AMap.convertFrom([pos2.coords.longitude, pos2.coords.latitude], 'gps', (s2, r2) => {
-                                    if (s2 === 'complete' && r2.locations?.[0]) {
-                                        applyLngLat(r2.locations[0][0], r2.locations[0][1], 'gps');
-                                    }
-                                });
-                            }
-                        },
-                        () => {},
-                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-                    );
+                    applyGpsCoords(lng, lat, accuracy);
                 },
                 (err) => {
-                    // Permission denied or timeout — fallback to AMap IP
-                    fallbackCity();
+                    // 权限拒绝或超时 — IP定位已并行启动，无需额外处理
+                    if (!applied) {
+                        setLocStatus('failed');
+                        setLocLabel('定位失败');
+                        setRefreshing(false);
+                    }
                 },
-                { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 }
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
             );
         }
 
