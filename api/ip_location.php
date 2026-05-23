@@ -28,8 +28,11 @@ if (empty($clientIP) || $clientIP === '127.0.0.1' || $clientIP === '::1') {
 $logDir = __DIR__ . '/../logs';
 $logFile = $logDir . '/ip_location_debug.log';
 
-// Tier 1: APIPPro
-$url = 'https://ipv4.ink/ipv4?ip=' . urlencode($clientIP);
+// Tier 1: APIPPro (use IPv6 endpoint if client has IPv6)
+$isIPv6 = strpos($clientIP, ':') !== false;
+$url = $isIPv6
+    ? 'https://ipv4.ink/ipv6?ip=' . urlencode($clientIP)
+    : 'https://ipv4.ink/ipv4?ip=' . urlencode($clientIP);
 $ch = curl_init($url);
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
@@ -53,6 +56,7 @@ $source = 'apipro';
 if (!$err && $response) {
     $data = json_decode($response, true);
     $d = $data['data'] ?? $data;
+    // IPv6 endpoint uses different field names
     $lat = $d['latitude'] ?? null;
     $lng = $d['longitude'] ?? null;
     $city = $d['city_name'] ?? $d['city'] ?? '';
@@ -60,8 +64,11 @@ if (!$err && $response) {
     $country = $d['country_name'] ?? $d['country'] ?? '';
     $isp = $d['isp'] ?? '';
 
-    if ($lat === null || $lng === null) {
-        file_put_contents($logFile, date('Y-m-d H:i:s') . ' | APIPPro no coords | ip=' . $clientIP . ' | raw=' . json_encode($data, JSON_UNESCAPED_UNICODE) . "\n", FILE_APPEND | LOCK_EX);
+    if ($lat !== null && $lng !== null) {
+        $lat = (float)$lat;
+        $lng = (float)$lng;
+    } else {
+        file_put_contents($logFile, date('Y-m-d H:i:s') . ' | APIPPro no coords | ip=' . $clientIP . ' | v6=' . ($isIPv6 ? 'Y' : 'N') . ' | raw=' . json_encode($data, JSON_UNESCAPED_UNICODE) . "\n", FILE_APPEND | LOCK_EX);
     }
 } else {
     file_put_contents($logFile, date('Y-m-d H:i:s') . ' | APIPPro error | ip=' . $clientIP . ' | err=' . $err . ' | http=' . $httpCode . "\n", FILE_APPEND | LOCK_EX);
