@@ -397,6 +397,17 @@
         .search-step-pending .search-step-label { color: var(--text-muted); }
         .search-step-detail { margin-left: auto; font-size: 11px; color: var(--text-muted); max-width: 160px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .step-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+        /* Footprint Page */
+        .footprint-map { width: 100%; height: 360px; background: #E8EDF2; }
+        .footprint-map .amap-logo, .footprint-map .amap-copyright { display: none !important; }
+        .footprint-stats { display: flex; gap: 12px; padding: 16px; }
+        .footprint-stat-card { flex: 1; background: var(--surface); border-radius: 12px; padding: 14px; text-align: center; box-shadow: 0 2px 8px rgba(15,20,55,0.06); }
+        .footprint-stat-num { font-size: 24px; font-weight: 800; color: var(--primary); font-family: var(--font-heading); }
+        .footprint-stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .footprint-province-list { padding: 0 16px 20px; }
+        .footprint-province-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--surface); border-radius: 12px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(15,20,55,0.04); }
+        .footprint-province-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+        .footprint-province-count { font-size: 12px; color: var(--text-muted); }
         .city-search-status { text-align: center; padding: 60px 20px; }
 
         /* ===== Preference Page ===== */
@@ -1415,6 +1426,32 @@
         );
     }
 
+    // Shared AMap loader (used by AITab LocationCard and FootprintsPage)
+    let _amapLib = null;
+    let _amapLoading = null;
+    function getAMap() {
+        if (_amapLib) return Promise.resolve(_amapLib);
+        if (_amapLoading) return _amapLoading;
+        _amapLoading = (async () => {
+            try {
+                const res = await fetch('/api/amap_jsapi_config.php');
+                const data = await res.json();
+                const cfg = data.config || {};
+                if (!cfg.key) throw new Error('no key');
+                if (cfg.serviceHost) window._AMapSecurityConfig = { serviceHost: cfg.serviceHost };
+                else if (cfg.securityJsCode) window._AMapSecurityConfig = { securityJsCode: cfg.securityJsCode };
+                _amapLib = await window.AMapLoader.load({ key: cfg.key, version: '2.0' });
+                return _amapLib;
+            } catch { return null; }
+        })();
+        return _amapLoading;
+    }
+
+    function normalizeProvinceName(name) {
+        if (!name) return '';
+        return name.replace(/壮族|回族|维吾尔/g, '').replace(/自治区|特别行政区/g, '').replace(/省|市/g, '').trim();
+    }
+
     // ==================== AI Tab ====================
     function AITab({ userLocation }) {
         const [messages, setMessages] = useState([]);
@@ -1525,26 +1562,6 @@
                 }
             }
             return segments.length ? segments : [{ type: 'text', value: text }];
-        }
-
-        let _amapLib = null;
-        let _amapLoading = null;
-        function getAMap() {
-            if (_amapLib) return Promise.resolve(_amapLib);
-            if (_amapLoading) return _amapLoading;
-            _amapLoading = (async () => {
-                try {
-                    const res = await fetch('/api/amap_jsapi_config.php');
-                    const data = await res.json();
-                    const cfg = data.config || {};
-                    if (!cfg.key) throw new Error('no key');
-                    if (cfg.serviceHost) window._AMapSecurityConfig = { serviceHost: cfg.serviceHost };
-                    else if (cfg.securityJsCode) window._AMapSecurityConfig = { securityJsCode: cfg.securityJsCode };
-                    _amapLib = await window.AMapLoader.load({ key: cfg.key, version: '2.0' });
-                    return _amapLib;
-                } catch { return null; }
-            })();
-            return _amapLoading;
         }
 
         function LocationCard({ loc }) {
@@ -1982,6 +1999,16 @@
                         </div>
                         <RightOutlined className="profile-menu-arrow" />
                     </div>
+                    <div className="profile-menu-item" onClick={() => onNavigate('footprints')}>
+                        <div className="profile-menu-icon" style={{ background: '#ECFDF5' }}>
+                            <EnvironmentOutlined style={{ color: '#059669', fontSize: 18 }} />
+                        </div>
+                        <div className="profile-menu-text">
+                            <h4>我的足迹</h4>
+                            <p>查看你到过的省份地图</p>
+                        </div>
+                        <RightOutlined className="profile-menu-arrow" />
+                    </div>
                     <div className="profile-menu-item" onClick={() => onNavigate('account')}>
                         <div className="profile-menu-icon" style={{ background: '#FFF7ED' }}>
                             <SettingOutlined style={{ color: '#F97316', fontSize: 18 }} />
@@ -2178,6 +2205,130 @@
                                 </div>
                             ))}
                         </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // ==================== Footprints Page ====================
+    function FootprintsPage({ onBack }) {
+        const [provinces, setProvinces] = useState([]);
+        const [records, setRecords] = useState([]);
+        const [loading, setLoading] = useState(true);
+        const mapRef = useRef(null);
+        const mapContainerRef = useRef(null);
+
+        useEffect(() => { loadFootprints(); }, []);
+
+        async function loadFootprints() {
+            setLoading(true);
+            try {
+                const res = await fetch('/api/footprint.php');
+                const data = await res.json();
+                if (data.success) {
+                    setProvinces(data.provinces || []);
+                    setRecords(data.records || []);
+                } else {
+                    message.error(data.message || '获取足迹失败');
+                }
+            } catch { message.error('网络错误，请重试'); }
+            setLoading(false);
+        }
+
+        useEffect(() => {
+            if (loading || !mapContainerRef.current) return;
+            let destroyed = false;
+            initMap();
+            return () => {
+                destroyed = true;
+                if (mapRef.current) { mapRef.current.destroy(); mapRef.current = null; }
+            };
+            async function initMap() {
+                const AMap = await getAMap();
+                if (!AMap || destroyed) return;
+                const map = new AMap.Map(mapContainerRef.current, {
+                    zoom: 4,
+                    center: [104.0, 37.5],
+                    mapStyle: 'amap://styles/normal',
+                    viewMode: '2D',
+                    features: ['bg', 'road'],
+                });
+                mapRef.current = map;
+                try {
+                    const geoRes = await fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json');
+                    if (!geoRes.ok) throw new Error('GeoJSON fetch failed');
+                    const geoData = await geoRes.json();
+                    if (destroyed) return;
+                    const geoJson = new AMap.GeoJSON({
+                        geoJSON: geoData,
+                        getPolygon: function(feature, path) {
+                            const name = feature.properties.name;
+                            const shortName = normalizeProvinceName(name);
+                            const isVisited = provinces.some(p => normalizeProvinceName(p) === shortName);
+                            return new AMap.Polygon({
+                                path: path,
+                                fillOpacity: isVisited ? 0.45 : 0.08,
+                                fillColor: isVisited ? '#059669' : '#CBD5E1',
+                                strokeColor: isVisited ? '#047857' : '#94A3B8',
+                                strokeWeight: 1,
+                                cursor: 'pointer',
+                            });
+                        },
+                    });
+                    geoJson.setMap(map);
+                } catch {
+                    console.warn('Failed to load province GeoJSON');
+                }
+            }
+        }, [loading, provinces]);
+
+        const provinceVisits = {};
+        records.forEach(r => {
+            if (r.province) provinceVisits[r.province] = (provinceVisits[r.province] || 0) + 1;
+        });
+
+        return (
+            <div className="sub-page">
+                <div className="sub-page-header">
+                    <button className="sub-page-back" onClick={onBack}><ArrowLeftOutlined /></button>
+                    <span className="sub-page-title">我的足迹</span>
+                </div>
+                <div className="sub-page-content" style={{ padding: 0, maxWidth: 'none' }}>
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: 60 }}><Spin /></div>
+                    ) : (
+                        <>
+                            <div className="footprint-stats">
+                                <div className="footprint-stat-card">
+                                    <div className="footprint-stat-num">{provinces.length}</div>
+                                    <div className="footprint-stat-label">已探访省份</div>
+                                </div>
+                                <div className="footprint-stat-card">
+                                    <div className="footprint-stat-num">{records.length}</div>
+                                    <div className="footprint-stat-label">总足迹次数</div>
+                                </div>
+                            </div>
+                            <div ref={mapContainerRef} className="footprint-map" />
+                            {provinces.length > 0 && (
+                                <div className="footprint-province-list">
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', padding: '16px 0 10px' }}>已探访省份</div>
+                                    {provinces.sort((a, b) => (provinceVisits[b] || 0) - (provinceVisits[a] || 0)).map(p => (
+                                        <div key={p} className="footprint-province-item">
+                                            <span className="footprint-province-name">{p}</span>
+                                            <span className="footprint-province-count">{provinceVisits[p] || 0} 次到访</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {provinces.length === 0 && (
+                                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
+                                    <EnvironmentOutlined style={{ fontSize: 40, marginBottom: 12 }} />
+                                    <div>暂无足迹记录</div>
+                                    <div style={{ fontSize: 12, marginTop: 4 }}>访问网站时会自动记录你的位置</div>
+                                </div>
+                            )}
+                        </>
                     )}
                 </div>
             </div>
@@ -2637,6 +2788,8 @@
         const [headerSearch, setHeaderSearch] = useState('');
         const [citySearchQuery, setCitySearchQuery] = useState('');
         const [userLocation, setUserLocation] = useState(null);
+        const [newProvince, setNewProvince] = useState(null);
+        const footprintRecorded = useRef(false);
 
         useEffect(() => {
             if (user && user.has_preferences === false) {
@@ -2652,12 +2805,56 @@
             }
         }, [user]);
 
+        // Record footprint on login
+        useEffect(() => {
+            if (!user || footprintRecorded.current) return;
+            footprintRecorded.current = true;
+            (async () => {
+                try {
+                    const locRes = await fetch('/api/ip_location.php');
+                    const locData = await locRes.json();
+                    if (!locData.success || !locData.province) return;
+                    const fpRes = await fetch('/api/footprint.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            city: locData.city || '',
+                            province: locData.province || '',
+                            country: locData.country || '',
+                            ip: locData.ip || '',
+                            lng: locData.lng || null,
+                            lat: locData.lat || null,
+                        }),
+                    });
+                    const fpData = await fpRes.json();
+                    if (fpData.success && fpData.is_new_province && fpData.province) {
+                        setNewProvince(fpData.province);
+                    }
+                } catch { /* silent */ }
+            })();
+        }, [user]);
+
+        // Congratulations modal for new province
+        useEffect(() => {
+            if (!newProvince) return;
+            Modal.success({
+                title: '恭喜解锁新地区',
+                content: '你的足迹已到达「' + newProvince + '」！继续探索更多未知的地方吧。',
+                centered: true,
+                okText: '知道了',
+                onOk: () => setNewProvince(null),
+            });
+            const timer = setTimeout(() => setNewProvince(null), 10000);
+            return () => clearTimeout(timer);
+        }, [newProvince]);
+
         if (showPrefs) return <PreferencePage user={user} onBack={() => setShowPrefs(false)} />;
         if (subPage === 'favorites') return <FavoritesPage onBack={() => setSubPage(null)} />;
         if (subPage === 'dislikes') return <DislikesPage onBack={() => setSubPage(null)} />;
         if (subPage === 'account') return <AccountSettingsPage user={user} onBack={() => setSubPage(null)} />;
         if (subPage === 'help') return <HelpPage onBack={() => setSubPage(null)} />;
         if (subPage === 'citySearch') return <CitySearchPage initialCity={citySearchQuery} onBack={() => { setSubPage(null); setCitySearchQuery(''); }} />;
+        if (subPage === 'footprints') return <FootprintsPage onBack={() => setSubPage(null)} />;
 
         function handleHeaderSearchKey(e) {
             if (e.key === 'Enter' && headerSearch.trim()) {
