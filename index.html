@@ -2290,7 +2290,7 @@
             return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
         }
 
-        const canSend = (inputText.trim() || attachedFiles.length > 0) && !loading;
+        const canSend = ((textareaRef.current?.value || inputText).trim() || attachedFiles.length > 0) && !loading;
 
         return (
             <div className="ai-chat">
@@ -2436,7 +2436,7 @@
                                 onFocus={() => setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 300)}
                                 onInput={e => { e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px'; }} />
                         </div>
-                        <button className="ai-send-btn" disabled={!canSend} onClick={sendMessage}><SendOutlined /></button>
+                        <button className="ai-send-btn" disabled={!canSend} onClick={sendMessage} onTouchEnd={e => { e.preventDefault(); sendMessage(); }}><SendOutlined /></button>
                     </div>
                     <div className="ai-actions">
                         <button className="ai-action-btn" title="选择收藏地点" onClick={() => { loadFavorites(); setShowFavPicker(true); }}><EnvironmentOutlined /></button>
