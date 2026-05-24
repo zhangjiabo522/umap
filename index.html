@@ -2072,7 +2072,9 @@
 
         async function sendMessage(continueParams) {
             const isContinue = !!continueParams;
-            const text = isContinue ? '' : inputText.trim();
+            // Read from DOM directly to avoid mobile IME/react state lag
+            const domText = textareaRef.current?.value || inputText;
+            const text = isContinue ? '' : domText.trim();
             if (!isContinue && !text && attachedFiles.length === 0) return;
             if (!isContinue && loading) return; // Allow continue calls to bypass loading guard
 
@@ -2081,6 +2083,8 @@
                 const userMsg = { role: 'user', content: text, favorite: selectedFavorite, attachments: attachedFiles.map(f => ({ name: f.name, type: f.type })) };
                 setMessages(prev => [...prev, userMsg]);
                 setInputText('');
+                // Clear DOM textarea manually for instant feedback on mobile
+                if (textareaRef.current) textareaRef.current.value = '';
             }
             setLoading(true);
             setStatusText('');
@@ -2144,6 +2148,10 @@
             };
 
             let hasPendingContinue = false;
+            // Safety timeout: force clear loading after 120s no matter what
+            const safetyTimer = setTimeout(() => {
+                if (!hasPendingContinue) { setLoading(false); setStatusText(''); }
+            }, 120000);
             try {
                 try {
                     const resp = await fetch('/api/ai_chat_stream.php', { method: 'POST', body: formData });
@@ -2258,6 +2266,7 @@
                     }
                 }
             } finally {
+                clearTimeout(safetyTimer);
                 if (!hasPendingContinue) {
                     setLoading(false);
                     setStatusText('');
@@ -2266,6 +2275,8 @@
         }
 
         function handleKeyDown(e) {
+            // Ignore during IME composition (mobile Chinese input)
+            if (e.isComposing || e.keyCode === 229) return;
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
         }
 
