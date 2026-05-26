@@ -5,7 +5,7 @@ require_once __DIR__ . '/includes/helpers.php';
 session_start();
 
 $adminUser = 'admin';
-$adminPass = 'zhang522';
+$adminPass = 'admin';
 
 // Logout
 if (isset($_GET['logout'])) {
