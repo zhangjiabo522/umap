@@ -2260,7 +2260,7 @@
 
                         // Execute each tool call
                         const toolResults = [];
-                        for (const tc of toolCalls.slice(0, 1)) {
+                        for (const tc of toolCalls.slice(0, 3)) {
                             setLoading(true);
                             setStatusText(`正在执行: ${tc.value.tool}...`);
                             updateAiMsg({ toolResults: [{ tool: tc.value.tool, status: 'loading' }] });

@@ -96,7 +96,7 @@ try {
     $payload = [
         'model' => MIMO_MODEL,
         'messages' => $mimoMessages,
-        'max_completion_tokens' => 2048,
+        'max_completion_tokens' => 4096,
         'stream' => true,
     ];
 
@@ -423,7 +423,7 @@ function buildSystemPrompt(array $profile, float $userLng = 0, float $userLat = 
   - 路线规划/怎么去/交通（如"怎么去"、"多远"、"路线"、"坐什么车"）→ 调用 get_route
   - 需要深入了解某篇搜索结果 → 调用 fetch_page
 
-2.【工具调用格式】每次回复最多调用 1 个执行工具，工具调用代码块放在回复末尾：
+2.【工具调用格式】每次回复最多调用 3 个执行工具，工具调用代码块放在回复末尾：
 ```tool_call
 {"tool":"工具名","params":{具体参数}}
 ```
