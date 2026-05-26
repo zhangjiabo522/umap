@@ -64,6 +64,7 @@ PROMPT;
                 ['role' => 'system', 'content' => '你是专业旅游顾问。严格按用户偏好筛选景点，只返回JSON数组，不输出任何解释。'],
                 ['role' => 'user', 'content' => $prompt],
             ],
+            'thinking' => ['type' => 'disabled'],
             'stream' => false,
         ], JSON_UNESCAPED_UNICODE),
         CURLOPT_HTTPHEADER => [

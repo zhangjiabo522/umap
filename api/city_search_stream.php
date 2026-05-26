@@ -293,6 +293,7 @@ function callDeepSeek(string $prompt, string $system): array {
             ['role' => 'system', 'content' => $system],
             ['role' => 'user', 'content' => $prompt],
         ],
+        'thinking' => ['type' => 'disabled'],
         'stream' => false,
     ], JSON_UNESCAPED_UNICODE);
 
