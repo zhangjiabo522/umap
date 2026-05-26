@@ -189,7 +189,7 @@
         .home-footprint-empty p { font-size: 12px; color: var(--text-muted); margin: 0; }
 
         /* AI Chat */
-        .ai-chat { display: flex; flex-direction: column; height: calc(100dvh - 60px - env(safe-area-inset-bottom)); max-width: 480px; margin: 0 auto; background: #F0F4F8; overflow: hidden; }
+        .ai-chat { display: flex; flex-direction: column; height: calc(100dvh - 60px - env(safe-area-inset-bottom)); width: 100%; background: #F0F4F8; overflow: hidden; }
         .ai-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; background: var(--surface); border-bottom: 1px solid rgba(228,231,237,0.7); flex-shrink: 0; }
         .ai-header-title { font-family: var(--font-heading); font-size: 15px; font-weight: 700; color: var(--text-primary); flex: 1; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; }
         .ai-header-btn { width: 36px; height: 36px; border-radius: 50%; border: none; background: #f5f7fa; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 16px; transition: all 150ms; -webkit-tap-highlight-color: transparent; flex-shrink: 0; }
@@ -210,7 +210,7 @@
         .ai-msg { display: flex; margin-bottom: 12px; }
         .ai-msg-user { justify-content: flex-end; }
         .ai-msg-ai { justify-content: flex-start; }
-        .ai-msg-bubble { max-width: 88%; padding: 10px 13px; border-radius: 18px; font-size: 14px; line-height: 1.6; word-break: break-word; }
+        .ai-msg-bubble { max-width: 92%; padding: 10px 14px; border-radius: 18px; font-size: 14px; line-height: 1.6; word-break: break-word; }
         .ai-msg-user .ai-msg-bubble { background: var(--primary); color: #fff; border-bottom-right-radius: 6px; }
         .ai-msg-ai .ai-msg-bubble { background: var(--surface); color: var(--text-primary); border-bottom-left-radius: 6px; box-shadow: 0 2px 8px rgba(15,20,55,0.06); }
         .ai-msg-tool .ai-msg-bubble { background: #f8fafc; border: 1px solid #e8ecf1; border-radius: 14px; max-width: 95%; padding: 6px 10px; }
