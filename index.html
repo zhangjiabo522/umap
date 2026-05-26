@@ -3540,9 +3540,9 @@
                 )}
 
                 <div className="app-content">
-                    {activeTab === 'home' && <HomeTab user={user} onGoPrefs={() => setShowPrefs(true)} onNavigate={setSubPage} onLocationUpdate={setUserLocation} />}
-                    {activeTab === 'ai' && <AITab userLocation={userLocation} />}
-                    {activeTab === 'profile' && <ProfileTab user={user} onLogout={onLogout} onGoPrefs={() => setShowPrefs(true)} onNavigate={setSubPage} />}
+                    <div style={{display: activeTab === 'home' ? 'block' : 'none'}}><HomeTab user={user} onGoPrefs={() => setShowPrefs(true)} onNavigate={setSubPage} onLocationUpdate={setUserLocation} /></div>
+                    <div style={{display: activeTab === 'ai' ? 'flex' : 'none'}}><AITab userLocation={userLocation} /></div>
+                    <div style={{display: activeTab === 'profile' ? 'block' : 'none'}}><ProfileTab user={user} onLogout={onLogout} onGoPrefs={() => setShowPrefs(true)} onNavigate={setSubPage} /></div>
                 </div>
 
                 <div className="bottom-tab-bar">
