@@ -24,7 +24,6 @@
     <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <script src="/api/recaptcha-js.php?render=explicit" async defer onerror=""></script>
     <style>
         :root {
             --primary: #1565EF; --primary-dark: #1254C4; --accent: #0D9488;
@@ -613,11 +612,12 @@
                 page_url: location.href.substring(0, 200),
                 screen: (screen.width || 0) + 'x' + (screen.height || 0),
             };
-            fetch('/api/geo_log.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            }).catch(() => {});
+            const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon('/api/geo_log.php', blob);
+            } else {
+                fetch('/api/geo_log.php', { method: 'POST', body: blob }).catch(() => {});
+            }
         } catch (e) {}
     }
 
