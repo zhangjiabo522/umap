@@ -1844,7 +1844,7 @@
         }
 
         function ToolCallBanner({ tool, status }) {
-            const toolNames = { search_places: '搜索地点', get_nearby: '搜索周边', get_weather: '查询天气', web_search: '联网搜索', fetch_page: '阅读网页', search_hotels: '比价酒店' };
+            const toolNames = { search_places: '搜索地点', get_nearby: '搜索周边', get_weather: '查询天气', web_search: '联网搜索', fetch_page: '阅读网页', search_hotels: '比价酒店', get_route: '路线规划' };
             const label = toolNames[tool] || tool;
             return (
                 <div className={`ai-toolcall-banner ${status}`}>
@@ -1884,6 +1884,29 @@
                                     )}
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                );
+            }
+            if (tool === 'get_route') {
+                const distKm = (result.distance / 1000).toFixed(1);
+                const durMin = Math.round(result.duration / 60);
+                return (
+                    <div className="ai-tool-result">
+                        <div className="ai-tool-result-header">
+                            🚗 {result.modeName}路线 · {distKm}km · 约{durMin}分钟
+                        </div>
+                        <div className="ai-tool-result-places">
+                            {result.steps && result.steps.slice(0, 8).map((s, i) => (
+                                <div key={i} className="ai-tool-result-place">
+                                    <div className={`ai-tool-result-place-rank${i < 3 ? ' top3' : ''}`}>{i + 1}</div>
+                                    <div className="ai-tool-result-place-info">
+                                        <div className="ai-tool-result-place-name" dangerouslySetInnerHTML={{__html: s.instruction}} />
+                                        {s.road && <div className="ai-tool-result-place-addr">🛣 {s.road} · {s.distance}m</div>}
+                                    </div>
+                                </div>
+                            ))}
+                            {result.stepCount > 8 && <div style={{padding:'8px 14px',fontSize:12,color:'var(--text-muted)'}}>... 共 {result.stepCount} 步</div>}
                         </div>
                     </div>
                 );

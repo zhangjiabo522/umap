@@ -26,6 +26,7 @@ try {
         'web_search' => webSearch($params),
         'fetch_page' => fetchPage($params),
         'search_hotels' => searchHotels($params),
+        'get_route' => getRoute($params),
         default => throw new RuntimeException("未知工具: {$tool}"),
     };
     jsonResponse(['success' => true, 'tool' => $tool, 'result' => $result]);
@@ -200,6 +201,47 @@ function fetchPage(array $params): array {
         'hostname' => $data['hostname'] ?? '',
         'text' => $data['text'] ?? '',
         'length' => $data['length'] ?? 0,
+    ];
+}
+
+function getRoute(array $params): array {
+    $origin = trim($params['origin'] ?? '');
+    $destination = trim($params['destination'] ?? '');
+    $mode = trim($params['mode'] ?? 'driving');
+    $city = trim($params['city'] ?? '');
+    if (!$origin || !$destination) throw new RuntimeException('缺少起终点坐标');
+
+    $modes = ['driving' => '/direction/driving', 'walking' => '/direction/walking', 'transit' => '/direction/transit/integrated'];
+    $path = $modes[$mode] ?? $modes['driving'];
+
+    $query = ['origin' => $origin, 'destination' => $destination, 'extensions' => 'all'];
+    if ($mode === 'transit' && $city) $query['city'] = $city;
+
+    $data = amapGet($path, $query);
+    $route = $data['route'] ?? [];
+    $paths = $route['paths'] ?? [];
+    $best = $paths[0] ?? [];
+
+    $steps = [];
+    foreach ($best['steps'] ?? [] as $step) {
+        $steps[] = [
+            'instruction' => $step['instruction'] ?? '',
+            'road' => $step['road'] ?? '',
+            'distance' => $step['distance'] ?? '',
+            'duration' => $step['duration'] ?? '',
+        ];
+    }
+
+    return [
+        'origin' => $origin,
+        'destination' => $destination,
+        'mode' => $mode,
+        'modeName' => ['driving' => '驾车', 'walking' => '步行', 'transit' => '公交'][$mode] ?? '驾车',
+        'distance' => $best['distance'] ?? 0,
+        'duration' => $best['duration'] ?? 0,
+        'polyline' => $best['polyline'] ?? '',
+        'steps' => $steps,
+        'stepCount' => count($steps),
     ];
 }
 
