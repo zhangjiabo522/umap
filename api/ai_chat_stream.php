@@ -96,8 +96,7 @@ try {
     $payload = [
         'model' => MIMO_MODEL,
         'messages' => $mimoMessages,
-        'max_completion_tokens' => 8192,
-        'thinking' => ['type' => 'disabled'],
+        'max_completion_tokens' => 16384,
         'stream' => true,
     ];
 
