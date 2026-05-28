@@ -82,7 +82,7 @@ try {
     $historyMessages = loadHistoryMessages($db, $sessionId, 10);
 
     $text = $isContinue
-        ? "以下是工具调用返回的实时数据，请基于这些数据继续回答用户的问题：\n\n{$prevToolResults}"
+        ? "以下是工具调用返回的实时数据。请基于这些数据继续处理用户的问题。如果数据还不够充分，可以继续调用更多工具（每次最多3个），直到信息足够回答为止：\n\n{$prevToolResults}"
         : buildUserText($message, $favorite, $mediaItems, $searchResults);
 
     $mimoMessages = [['role' => 'system', 'content' => buildSystemPrompt($profile, $userLng, $userLat)]];

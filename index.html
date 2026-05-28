@@ -2237,33 +2237,59 @@
                 // Track final content
                 aiContentRef.current = fullText;
 
-                // After streaming, check for tool_calls (only on initial response, not continue)
-                if (!isContinue) {
-                    const segments = parseContent(fullText);
+                // After streaming, check for tool_calls (max 3 rounds to prevent infinite loops)
+                const toolRound = (continueParams && continueParams.toolRound) || 0;
+                if (toolRound < 3) {
+                    // For continue, only parse new content after the last separator
+                    const textToParse = isContinue ? fullText.split('\n\n---\n\n').pop() : fullText;
+                    const segments = parseContent(textToParse);
                     const toolCalls = segments.filter(s => s.type === 'tool_call');
 
                     if (toolCalls.length > 0) {
-                        // Remove tool_call blocks from displayed text
-                        const cleanContent = segments
-                            .filter(s => s.type !== 'tool_call')
-                            .map(s => {
-                                if (s.type === 'text') return s.value;
-                                if (s.type === 'location') return '```location\n' + JSON.stringify(s.value) + '\n```';
-                                if (s.type === 'itinerary') return '```itinerary\n' + JSON.stringify(s.value) + '\n```';
-                                if (s.type === 'comparison') return '```comparison\n' + JSON.stringify(s.value) + '\n```';
-                                if (s.type === 'travel_tip') return '```travel_tip\n' + JSON.stringify(s.value) + '\n```';
-                                return '';
-                            }).join('\n\n');
+                        if (!isContinue) {
+                            // Remove tool_call blocks from displayed text
+                            const cleanContent = segments
+                                .filter(s => s.type !== 'tool_call')
+                                .map(s => {
+                                    if (s.type === 'text') return s.value;
+                                    if (s.type === 'location') return '```location\n' + JSON.stringify(s.value) + '\n```';
+                                    if (s.type === 'itinerary') return '```itinerary\n' + JSON.stringify(s.value) + '\n```';
+                                    if (s.type === 'comparison') return '```comparison\n' + JSON.stringify(s.value) + '\n```';
+                                    if (s.type === 'travel_tip') return '```travel_tip\n' + JSON.stringify(s.value) + '\n```';
+                                    return '';
+                                }).join('\n\n');
+                            updateAiMsg({ content: cleanContent });
+                            aiContentRef.current = cleanContent;
+                        } else {
+                            // For continue, also strip tool_call blocks from new content only
+                            const newClean = segments
+                                .filter(s => s.type !== 'tool_call')
+                                .map(s => {
+                                    if (s.type === 'text') return s.value;
+                                    if (s.type === 'location') return '```location\n' + JSON.stringify(s.value) + '\n```';
+                                    if (s.type === 'itinerary') return '```itinerary\n' + JSON.stringify(s.value) + '\n```';
+                                    if (s.type === 'comparison') return '```comparison\n' + JSON.stringify(s.value) + '\n```';
+                                    if (s.type === 'travel_tip') return '```travel_tip\n' + JSON.stringify(s.value) + '\n```';
+                                    return '';
+                                }).join('\n\n');
+                            // Replace the last segment of fullText with cleaned version
+                            const parts = fullText.split('\n\n---\n\n');
+                            parts[parts.length - 1] = newClean;
+                            const cleanedFull = parts.join('\n\n---\n\n');
+                            updateAiMsg({ content: cleanedFull });
+                            aiContentRef.current = cleanedFull;
+                        }
 
-                        updateAiMsg({ content: cleanContent });
-                        aiContentRef.current = cleanContent;
+                        // Get existing tool results for accumulation on continue
+                        const existingResults = isContinue ? (continueParams.existingToolResults || []) : [];
 
                         // Execute each tool call
-                        const toolResults = [];
+                        const newResults = [];
                         for (const tc of toolCalls.slice(0, 3)) {
                             setLoading(true);
                             setStatusText(`正在执行: ${tc.value.tool}...`);
-                            updateAiMsg({ toolResults: [{ tool: tc.value.tool, status: 'loading' }] });
+                            const allResults = [...existingResults, ...newResults, { tool: tc.value.tool, status: 'loading' }];
+                            updateAiMsg({ toolResults: allResults });
                             try {
                                 const tResp = await fetch('/api/ai_tool_exec.php', {
                                     method: 'POST',
@@ -2271,20 +2297,21 @@
                                     body: JSON.stringify({ tool: tc.value.tool, params: tc.value.params }),
                                 });
                                 const tData = await tResp.json();
-                                toolResults.push({ tool: tc.value.tool, params: tc.value.params, result: tData.success ? tData.result : null, error: tData.error || null, status: 'done' });
+                                newResults.push({ tool: tc.value.tool, params: tc.value.params, result: tData.success ? tData.result : null, error: tData.error || null, status: 'done' });
                             } catch (e) {
-                                toolResults.push({ tool: tc.value.tool, params: tc.value.params, result: null, error: '网络错误', status: 'done' });
+                                newResults.push({ tool: tc.value.tool, params: tc.value.params, result: null, error: '网络错误', status: 'done' });
                             }
+                            const doneResults = [...existingResults, ...newResults];
+                            updateAiMsg({ toolResults: doneResults });
                         }
                         setStatusText('');
 
-                        // Store tool results in the SAME AI message
-                        updateAiMsg({ toolResults });
+                        const accumulatedResults = [...existingResults, ...newResults];
 
                         // Auto-trigger continue — keep loading=true throughout
                         hasPendingContinue = true;
                         setTimeout(() => {
-                            sendMessage({ toolResults, aiMsgTag });
+                            sendMessage({ toolResults: accumulatedResults, aiMsgTag, toolRound: toolRound + 1, existingToolResults: accumulatedResults });
                         }, 300);
                     }
                 }
