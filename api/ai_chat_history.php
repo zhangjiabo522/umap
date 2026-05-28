@@ -217,7 +217,7 @@ function generateTitle(string $text): string {
             'max_completion_tokens' => 50,
             'stream' => false,
         ], JSON_UNESCAPED_UNICODE),
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'api-key: ' . $apiKey],
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Authorization: Bearer ' . $apiKey],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 15,
     ]);

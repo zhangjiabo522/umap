@@ -561,7 +561,7 @@ function callMimo(array $payload, bool $stream, string &$outThink = null, string
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'api-key: ' . MIMO_API_KEY],
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Authorization: Bearer ' . MIMO_API_KEY],
         CURLOPT_RETURNTRANSFER => false,
         CURLOPT_TIMEOUT => 150,
         CURLOPT_WRITEFUNCTION => function ($ch, string $chunk) use (&$buffer, &$raw, &$emitted, &$done, &$thinkBuf, &$contentBuf, &$lastSaveTime, $onProgress) {
@@ -615,7 +615,7 @@ function callMimoNonStream(array $payload): array {
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'api-key: ' . MIMO_API_KEY],
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Authorization: Bearer ' . MIMO_API_KEY],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 150,
     ]);
@@ -695,7 +695,7 @@ function generateSessionTitle(PDO $db, int $sessionId, string $firstMsg): void {
             'max_completion_tokens' => 50,
             'stream' => false,
         ], JSON_UNESCAPED_UNICODE),
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'api-key: ' . $apiKey],
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'Authorization: Bearer ' . $apiKey],
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 15,
     ]);
